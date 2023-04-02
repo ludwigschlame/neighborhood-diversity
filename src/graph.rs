@@ -94,6 +94,15 @@ impl Graph {
             .collect()
     }
 
+    // returns degree of given vertex
+    // a vertex is not it's own neighbor except for self-loops
+    pub fn degree(&self, vertex: usize) -> usize {
+        self.adjacency_matrix[vertex]
+            .iter()
+            .map(|is_neighbor| *is_neighbor as usize)
+            .sum::<usize>()
+    }
+
     // keeps track of visited vertices and starts DFS from unvisited ones
     pub fn count_connected_components(&self) -> usize {
         let mut visited = vec![false; self.vertex_count];
