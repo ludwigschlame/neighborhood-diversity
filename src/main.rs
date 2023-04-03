@@ -10,16 +10,20 @@ fn main() {
         .parse::<Graph>()
         .unwrap_or_else(|err| panic!("error parsing input: {}", err));
 
-    let neighborhood_diversity = calc_nd(example_graph, Algorithm::Naive);
+    let neighborhood_diversity = calc_nd(&example_graph, Algorithm::Naive);
 
     println!("The neighborhood diversity is {}.", neighborhood_diversity);
 
     // random graph
-    println!(
-        "The neighborhood diversity is {}.",
-        calc_nd(
-            Graph::random_graph(1e2 as usize, 1e-2).unwrap(),
-            Algorithm::Naive
-        )
-    );
+    for i in 0..11 {
+        let edge_probability = 0.1 * i as f64;
+        println!(
+            "edge probability probability: {:.2}; neighborhood diversity {}",
+            edge_probability,
+            calc_nd(
+                &Graph::random_graph(1e2 as usize, edge_probability),
+                Algorithm::Naive
+            )
+        );
+    }
 }

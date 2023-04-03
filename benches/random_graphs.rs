@@ -2,8 +2,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use neighborhood_diversity::*;
 
 fn nd_calc(c: &mut Criterion) {
-    let graph_2 = Graph::random_graph(1e2 as usize, 1e-2).unwrap();
-    let graph_3 = Graph::random_graph(1e3 as usize, 1e-3).unwrap();
+    let graph_2 = Graph::random_graph(1e2 as usize, 1e-2);
+    let graph_3 = Graph::random_graph(1e3 as usize, 1e-3);
 
     c.bench_function("Naive Algorithm (10^2)", |b| {
         b.iter(|| {

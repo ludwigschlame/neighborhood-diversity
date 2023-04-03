@@ -7,6 +7,7 @@ pub enum Algorithm {
     DegreeFilter,
 }
 
+// #[derive(Debug)]
 // pub struct AlgorithmParameters {
 //     degree_filter: bool,
 //     binary_search: bool,
@@ -91,7 +92,7 @@ mod tests {
 
     #[test]
     fn degree_filter_vs_naive() {
-        let random_graph = Graph::random_graph(1e2 as usize, 1e-2).unwrap();
+        let random_graph = Graph::random_graph(1e2 as usize, 1e-2);
 
         // test algorithm with degree filter against naive implementation
         assert_eq!(

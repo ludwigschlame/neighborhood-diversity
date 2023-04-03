@@ -1,7 +1,8 @@
 use rand::prelude::*;
 use std::collections::HashSet;
 
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Graph {
     pub vertex_count: usize,
     pub adjacency_matrix: Vec<Vec<bool>>,
@@ -10,46 +11,42 @@ pub struct Graph {
 impl Graph {
     // constructs a graph with no edges
     pub fn null_graph(vertex_count: usize) -> Self {
-        Graph {
+        Self {
             vertex_count,
             adjacency_matrix: vec![vec![false; vertex_count]; vertex_count],
         }
     }
 
-    // constructs a graph where every pair of vertices is connected by an edge
+    // constructs a graph where every distinct pair of vertices is connected by an edge
     pub fn complete_graph(vertex_count: usize) -> Self {
-        Graph {
+        let mut adjacency_matrix = vec![vec![true; vertex_count]; vertex_count];
+        // remove self-loops
+        (0..vertex_count).for_each(|i| {
+            adjacency_matrix[i][i] = false;
+        });
+
+        Self {
             vertex_count,
-            adjacency_matrix: vec![vec![true; vertex_count]; vertex_count],
+            adjacency_matrix,
         }
     }
 
     // constructs a random graph after Gilbert's model G(n, p)
-    // every possible edge independently exists with probability p in (0,1)
-    pub fn random_graph(
-        vertex_count: usize,
-        probability: f32,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        // check if probability is in open interval (0, 1)
-        if !(probability > 0.0 && probability < 1.0) {
-            return Err(
-                format!("probability: {probability}, expected: 0 < probability < 1").into(),
-            );
-        }
-
+    // every edge between distinct vertices independently exists with probability p
+    pub fn random_graph(vertex_count: usize, probability: f64) -> Self {
         let mut rng = rand::thread_rng();
         let mut random_graph = Self::null_graph(vertex_count);
 
         for u in 0..random_graph.vertex_count {
-            for v in u..random_graph.vertex_count {
-                if rng.gen::<f32>() <= probability {
+            for v in (u + 1)..random_graph.vertex_count {
+                if rng.gen_bool(probability.clamp(0.0, 1.0)) {
                     random_graph
                         .insert_edge(u, v)
                         .expect("u and v are in range 0..vertex_count");
                 }
             }
         }
-        Ok(random_graph)
+        random_graph
     }
 
     // inserts edge (u, v) into the adjacency matrix
@@ -130,6 +127,19 @@ impl Graph {
             }
         }
     }
+
+    pub fn export(&self) -> String {
+        let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", self.vertex_count);
+        for u in 0..self.vertex_count {
+            for v in u..self.vertex_count {
+                if self.adjacency_matrix[u][v] {
+                    output.push_str(&format!("{},{}\n", u, v));
+                }
+            }
+        }
+
+        output
+    }
 }
 
 // creates a graph from an input string
@@ -151,7 +161,7 @@ impl std::str::FromStr for Graph {
             .next()
             .ok_or("input does not contain graph data")?
             .parse()?;
-        let mut graph = Graph::null_graph(vertex_count);
+        let mut graph = Self::null_graph(vertex_count);
 
         // for each remaining line, tries to split once at comma
         // then tries to parse both sides as vertex indices
