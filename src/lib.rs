@@ -4,22 +4,27 @@ pub use graph::Graph;
 
 pub enum Algorithm {
     Naive, // O(n^3)
-    NaiveDegreeFilter,
+    DegreeFilter,
 }
 
-pub fn calc_nd(graph: Graph, algorithm: Algorithm) -> usize {
+// pub struct AlgorithmParameters {
+//     degree_filter: bool,
+//     binary_search: bool,
+// }
+
+pub fn calc_nd(graph: &Graph, algorithm: Algorithm) -> usize {
     match algorithm {
         Algorithm::Naive => nd_naive(graph),
-        Algorithm::NaiveDegreeFilter => nd_naive_degree_filter(graph),
+        Algorithm::DegreeFilter => nd_degree_filter(graph),
     }
 }
 
-fn nd_naive(graph: Graph) -> usize {
+fn nd_naive(graph: &Graph) -> usize {
     let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
 
     for u in 0..graph.vertex_count {
         for v in u..graph.vertex_count {
-            if same_type(&graph, u, v) {
+            if same_type(graph, u, v) {
                 type_connectivity_graph
                     .insert_edge(u, v)
                     .expect("u and v are elements of range 0..vertex_count");
@@ -30,7 +35,7 @@ fn nd_naive(graph: Graph) -> usize {
     type_connectivity_graph.count_connected_components()
 }
 
-fn nd_naive_degree_filter(graph: Graph) -> usize {
+fn nd_degree_filter(graph: &Graph) -> usize {
     // collect degrees for all vertices
     let degrees = (0..graph.vertex_count)
         .map(|vertex| graph.degree(vertex))
@@ -45,7 +50,7 @@ fn nd_naive_degree_filter(graph: Graph) -> usize {
                 continue;
             }
 
-            if same_type(&graph, u, v) {
+            if same_type(graph, u, v) {
                 type_connectivity_graph
                     .insert_edge(u, v)
                     .expect("u and v are elements of range 0..vertex_count");
@@ -79,8 +84,19 @@ mod tests {
             .parse::<Graph>()
             .unwrap_or_else(|err| panic!("error parsing input: {}", err));
 
-        let neighborhood_diversity = calc_nd(graph, Algorithm::Naive);
+        let neighborhood_diversity = calc_nd(&graph, Algorithm::Naive);
 
         assert_eq!(neighborhood_diversity, 6);
+    }
+
+    #[test]
+    fn degree_filter_vs_naive() {
+        let random_graph = Graph::random_graph(1e2 as usize, 1e-2).unwrap();
+
+        // test algorithm with degree filter against naive implementation
+        assert_eq!(
+            calc_nd(&random_graph, Algorithm::DegreeFilter),
+            calc_nd(&random_graph, Algorithm::Naive)
+        );
     }
 }

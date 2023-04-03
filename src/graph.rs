@@ -43,7 +43,9 @@ impl Graph {
         for u in 0..random_graph.vertex_count {
             for v in u..random_graph.vertex_count {
                 if rng.gen::<f32>() <= probability {
-                    random_graph.insert_edge(u, v)?;
+                    random_graph
+                        .insert_edge(u, v)
+                        .expect("u and v are in range 0..vertex_count");
                 }
             }
         }
