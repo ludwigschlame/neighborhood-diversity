@@ -179,7 +179,7 @@ impl Graph {
             .sum::<usize>()
     }
 
-    // returns actual density of given matrix (number of edges / possible edges)
+    // returns actual density of given graph (number of edges / possible edges)
     pub fn density(&self) -> f64 {
         self.adjacency_matrix
             .iter()

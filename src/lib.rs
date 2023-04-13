@@ -62,7 +62,7 @@ fn nd_degree_filter(graph: &Graph) -> usize {
     type_connectivity_graph.count_connected_components()
 }
 
-pub fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
+fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
     let mut u_neighbors = graph.neighbors(u);
     let mut v_neighbors = graph.neighbors(v);
     u_neighbors.remove(&v); // N(u) \ v
