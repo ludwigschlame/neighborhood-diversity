@@ -1,4 +1,4 @@
-use rand::prelude::*;
+use rand::{distributions::Uniform, prelude::*};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -49,9 +49,86 @@ impl Graph {
         random_graph
     }
 
+    // constructs a random graph in the spirit of Gilbert's model G(n, p)
+    // the additional parameter specifies an upper limit for the neighborhood diversity
+    // first, a generator graph is constructed by generating a random graph with
+    // #neighborhood_diversity_limit many vertices and the given edge probability
+    // afterwards, for every vertex in the generator graph, a clique or an independent set
+    // (based on the edge probability) is inserted into the resulting graph
+    // finally, the sets of vertices are connected by edges analogous to the generator graph
+    pub fn random_graph_nd_limited(
+        vertex_count: usize,
+        probability: f64,
+        neighborhood_diversity_limit: usize,
+    ) -> Self {
+        let mut rng = rand::thread_rng();
+        let generator_graph = Self::random_graph(neighborhood_diversity_limit, probability);
+        let mut random_graph = Self::null_graph(vertex_count);
+
+        // randomly divides vertices into #neighborhood_diversity_limit many chunks
+        // collects these dividers into sorted array as starting positions for the sets
+        let set_start: Vec<usize> = {
+            // vertex index 0 is reserved for the initial starting position
+            let vertex_range = Uniform::from(1..vertex_count);
+            let mut set_dividers: HashSet<usize> =
+                HashSet::with_capacity(neighborhood_diversity_limit);
+
+            // avoids excessive iterations by generating at most vertex_count / 2 dividers
+            if neighborhood_diversity_limit <= vertex_count / 2 {
+                // insert into empty HashSet
+                set_dividers.insert(0);
+                while set_dividers.len() < neighborhood_diversity_limit {
+                    set_dividers.insert(vertex_range.sample(&mut rng));
+                }
+            } else {
+                // remove from 'full' HashSet
+                set_dividers = (0..vertex_count).collect();
+                while set_dividers.len() > neighborhood_diversity_limit {
+                    set_dividers.remove(&vertex_range.sample(&mut rng));
+                }
+            }
+
+            let mut set_start = Vec::from_iter(set_dividers);
+            set_start.sort();
+            set_start
+        };
+
+        for u_gen in 0..generator_graph.vertex_count {
+            let set_end_u = match u_gen == generator_graph.vertex_count - 1 {
+                true => vertex_count,
+                false => set_start[u_gen + 1],
+            };
+
+            // decides wether the neighborhood is a clique or an independent set
+            // if neighborhood is a clique, inserts all edges between distinct vertices
+            if rng.gen_bool(probability) {
+                for u in set_start[u_gen]..set_end_u {
+                    for v in (u + 1)..set_end_u {
+                        random_graph.insert_edge(u, v).unwrap();
+                    }
+                }
+            }
+
+            // inserts edges between vertex sets based on edges in the generator_graph
+            for v_gen in generator_graph.neighbors(u_gen) {
+                let set_end_v = match v_gen == generator_graph.vertex_count - 1 {
+                    true => vertex_count,
+                    false => set_start[v_gen + 1],
+                };
+                for u in set_start[u_gen]..set_end_u {
+                    for v in set_start[v_gen]..set_end_v {
+                        random_graph.insert_edge(u, v).unwrap();
+                    }
+                }
+            }
+        }
+
+        random_graph
+    }
+
     // inserts edge (u, v) into the adjacency matrix
     // returns wether the edge was newly inserted:
-    // graph did not contain edge:   returns true
+    // graph did not contain edge: returns true
     // graph already contained edge: returns false
     pub fn insert_edge(&mut self, u: usize, v: usize) -> Result<bool, Box<dyn std::error::Error>> {
         // returns error if index is out of bounds
@@ -100,6 +177,15 @@ impl Graph {
             .iter()
             .map(|is_neighbor| *is_neighbor as usize)
             .sum::<usize>()
+    }
+
+    // returns actual density of given matrix (number of edges / possible edges)
+    pub fn density(&self) -> f64 {
+        self.adjacency_matrix
+            .iter()
+            .map(|row| row.iter().filter(|b| **b).count())
+            .sum::<usize>() as f64
+            / (self.vertex_count * self.vertex_count) as f64
     }
 
     // keeps track of visited vertices and starts DFS from unvisited ones
