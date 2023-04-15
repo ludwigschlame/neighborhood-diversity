@@ -45,6 +45,7 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
             if options.degree_filter && degrees[u] != degrees[v] {
                 continue;
             }
+
             // only compare neighborhoods if v is not already in an equivalence class
             if options.no_unnecessary_type_comparisons
                 && !type_connectivity_graph.neighbors(v).is_empty()
