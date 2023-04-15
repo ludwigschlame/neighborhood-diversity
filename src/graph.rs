@@ -1,3 +1,6 @@
+use super::*;
+use colors_transform::{Color, Hsl};
+use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
 use std::collections::HashSet;
 
@@ -189,31 +192,59 @@ impl Graph {
     }
 
     // keeps track of visited vertices and starts DFS from unvisited ones
-    pub fn count_connected_components(&self) -> usize {
+    // for each unvisited vertex a new entry is made in the connected_components vector
+    // it will then be filled by the DFS
+    pub fn connected_components(&self) -> Vec<Vec<usize>> {
         let mut visited = vec![false; self.vertex_count];
-        let mut count = 0;
+        let mut connected_components: Vec<Vec<usize>> = vec![];
 
         for vertex in 0..self.vertex_count {
             if !visited[vertex] {
-                count += 1;
-                self.depth_first_search(vertex, &mut visited);
+                connected_components.push(Vec::new());
+                self.depth_first_search(
+                    vertex,
+                    &mut visited,
+                    connected_components
+                        .last_mut()
+                        .expect("just pushed a new entry, cannot be empty"),
+                );
             }
         }
 
-        count
+        connected_components
     }
 
-    // marks start as visited and recursively does DFS from unvisited neighbors
-    fn depth_first_search(&self, start: usize, visited: &mut Vec<bool>) {
+    // does stack-based DFS in order to avoid recursion
+    // 1. moves start on the stack and marks it as visited
+    // 2. adds top of stack to connected_component
+    // 3. adds unvisited neighbors to top of stack, marks them as visited and goes back to 2.
+    fn depth_first_search(
+        &self,
+        start: usize,
+        visited: &mut [bool],
+        connected_component: &mut Vec<usize>,
+    ) {
+        let mut stack = vec![start];
         visited[start] = true;
 
-        for neighbor in self.neighbors(start) {
-            if !visited[neighbor] {
-                self.depth_first_search(neighbor, visited);
+        while let Some(vertex) = stack.pop() {
+            connected_component.push(vertex);
+
+            for neighbor in self.neighbors(vertex) {
+                if !visited[neighbor] {
+                    // marks visited immediately so vertex isn't pushed onto stack multiple times
+                    visited[neighbor] = true;
+                    stack.push(neighbor);
+                }
             }
         }
     }
 
+    // returns graph in string representation in a format that can later be parsed back into a graph
+    // first line contains number of vertices
+    // following lines list one edge each
+    // vertex indices are separated by a comma: u,v
+    // adds comments starting with '#'
     pub fn export(&self) -> String {
         let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", self.vertex_count);
         for u in 0..self.vertex_count {
@@ -225,6 +256,93 @@ impl Graph {
         }
 
         output
+    }
+
+    // writes a html document showing the graph in a visually
+    // optional: vertices can be colored by group if a coloring vector is provided
+    pub fn visualize(&self, path: &str, coloring: Option<&Vec<Vec<usize>>>) {
+        const SATURATION: f32 = 80.0;
+        const LUMINANCE: f32 = 80.0;
+        const DEFAULT_HUE: f32 = 180.0; // Teal
+        const VERTEX_SHAPE: &str = "circle";
+
+        let default_color = Hsl::from(DEFAULT_HUE, SATURATION, LUMINANCE)
+            .to_rgb()
+            .to_css_hex_string();
+        let na_color = Hsl::from(0.0, 0.0, 95.0).to_rgb().to_css_hex_string();
+        let mut colors: Vec<String> = Vec::new();
+
+        let mut vis_network = Network::new();
+
+        if let Some(coloring) = coloring {
+            // selects colors for vertex groups by splitting hue into equal parts
+            // avoids borrow checker by generating vector of colors in it's own loop
+            let group_count = coloring.len();
+            for group_id in 0..group_count {
+                let hue = 360.0 / group_count as f32 * (group_id) as f32;
+                colors.push(
+                    Hsl::from(hue, SATURATION, LUMINANCE)
+                        .to_rgb()
+                        .to_css_hex_string(),
+                );
+            }
+
+            // inserts vertices by group with their corresponding color and group id
+            let mut remaining_vertices = (0..self.vertex_count).collect::<HashSet<usize>>();
+            for (group_id, color_group) in coloring.iter().enumerate() {
+                for vertex_id in color_group {
+                    remaining_vertices.remove(vertex_id);
+                    vis_network.add_node(
+                        *vertex_id as u128,
+                        &format!("{}", group_id),
+                        Some(vec![
+                            NodeOptions::Hex(&colors[group_id]),
+                            NodeOptions::Shape(VERTEX_SHAPE),
+                        ]),
+                    );
+                }
+            }
+
+            // inserts remaining vertices (if not all vertices are included in the coloring)
+            for vertex_id in remaining_vertices {
+                vis_network.add_node(
+                    vertex_id as u128,
+                    "N/A",
+                    Some(vec![
+                        NodeOptions::Hex(&na_color),
+                        NodeOptions::Shape(VERTEX_SHAPE),
+                    ]),
+                );
+            }
+        } else {
+            // no coloring provided, thus inserts all vertices with default color and no group id
+            for vertex_id in 0..self.vertex_count {
+                vis_network.add_node(
+                    vertex_id as u128,
+                    "",
+                    Some(vec![
+                        NodeOptions::Hex(&default_color),
+                        NodeOptions::Shape(VERTEX_SHAPE),
+                    ]),
+                );
+            }
+        }
+
+        // inserts edges corresponding to those from the original graph
+        for u in 0..self.vertex_count {
+            for v in (u + 1)..self.vertex_count {
+                if self.adjacency_matrix[u][v] {
+                    vis_network.add_edge(u as u128, v as u128, None, false)
+                }
+            }
+        }
+
+        vis_network.create(path).unwrap();
+    }
+
+    // enables the neighborhood density calculation to be called as a method on the graph
+    pub fn calc_nd_classes(&self, options: Options) -> Vec<Vec<usize>> {
+        calc_nd_classes(self, options)
     }
 }
 
