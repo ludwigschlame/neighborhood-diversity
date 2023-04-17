@@ -1,4 +1,4 @@
-use super::*;
+use crate::Options;
 use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
@@ -240,7 +240,7 @@ impl Graph {
         }
     }
 
-    // returns graph in string representation in a format that can later be parsed back into a graph
+    // returns graph in string representation in a format that can be parsed back into a graph
     // first line contains number of vertices
     // following lines list one edge each
     // vertex indices are separated by a comma: u,v
@@ -258,7 +258,7 @@ impl Graph {
         output
     }
 
-    // writes a html document showing the graph in a visually
+    // saves an html document showing the graph in visual form
     // optional: vertices can be colored by group if a coloring vector is provided
     pub fn visualize(&self, path: &str, coloring: Option<&Vec<Vec<usize>>>) {
         const SATURATION: f32 = 80.0;
@@ -342,7 +342,7 @@ impl Graph {
 
     // enables the neighborhood density calculation to be called as a method on the graph
     pub fn calc_nd_classes(&self, options: Options) -> Vec<Vec<usize>> {
-        calc_nd_classes(self, options)
+        crate::calc_nd_classes(self, options)
     }
 }
 
