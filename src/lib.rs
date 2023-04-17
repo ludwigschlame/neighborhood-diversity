@@ -2,6 +2,8 @@ mod graph;
 
 pub use graph::Graph;
 
+use std::collections::BTreeMap;
+
 #[derive(Debug)]
 pub struct Options {
     degree_filter: bool,
@@ -67,38 +69,82 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
     type_connectivity_graph.connected_components()
 }
 
-#[cfg(test)]
-// naive algorithm that should be easily verifiable
-// used to test correctness of improved algorithms
-fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
-    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
+pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
+    let mut types: Vec<Vec<usize>> = Vec::new();
 
-    for u in 0..graph.vertex_count {
-        for v in u..graph.vertex_count {
-            if same_type(graph, u, v) {
-                type_connectivity_graph
-                    .insert_edge(u, v)
-                    .expect("u and v are elements of range 0..vertex_count");
-            }
+    let mut cliques: BTreeMap<Vec<_>, usize> = BTreeMap::new();
+    let mut independent_sets: BTreeMap<Vec<_>, usize> = BTreeMap::new();
+
+    for vertex in 0..graph.vertex_count {
+        // let mut clique_type: Vec<_> = graph.neighbors(u).into_iter().chain([u]).collect();
+        // clique_type.sort();
+        // let mut independent_set_type: Vec<_> = clique_type.clone();
+        // if let Ok(pos) = independent_set_type.binary_search(&u) {
+        //     independent_set_type.remove(pos);
+        // }
+
+        let mut clique_type: Vec<bool> = vec![false; graph.vertex_count];
+
+        for neighbor in graph.neighbors(vertex) {
+            clique_type[neighbor] = true;
+        }
+
+        let independent_set_type = clique_type.clone();
+        clique_type[vertex] = true;
+
+        if let Some(vertex_type) = cliques.get(&clique_type) {
+            types[*vertex_type].push(vertex);
+        } else if let Some(vertex_type) = independent_sets.get(&independent_set_type) {
+            types[*vertex_type].push(vertex);
+        } else {
+            let vertex_type = types.len();
+            types.push(vec![vertex]);
+            cliques.insert(clique_type, vertex_type);
+            independent_sets.insert(independent_set_type, vertex_type);
         }
     }
 
-    type_connectivity_graph.connected_components()
+    types
 }
 
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
     let mut u_neighbors = graph.neighbors(u);
     let mut v_neighbors = graph.neighbors(v);
-    u_neighbors.remove(&v); // N(u) \ v
-    v_neighbors.remove(&u); // N(v) \ u
 
+    // N(u) \ v
+    if let Some(pos) = u_neighbors.iter().position(|x| *x == v) {
+        u_neighbors.remove(pos);
+    }
+    // N(v) \ u
+    if let Some(pos) = v_neighbors.iter().position(|x| *x == u) {
+        v_neighbors.remove(pos);
+    }
+
+    // equal comparison works because 'graph.neighbors()' always results in same order
     u_neighbors == v_neighbors
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+
+    // naive algorithm that should be easily verifiable
+    // used to test correctness of improved algorithms
+    fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
+        let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
+
+        for u in 0..graph.vertex_count {
+            for v in u..graph.vertex_count {
+                if same_type(graph, u, v) {
+                    type_connectivity_graph
+                        .insert_edge(u, v)
+                        .expect("u and v are elements of range 0..vertex_count");
+                }
+            }
+        }
+
+        type_connectivity_graph.connected_components()
+    }
 
     #[test]
     fn baseline_on_example() {
@@ -143,6 +189,17 @@ mod tests {
         // test algorithm with degree filter against naive implementation
         assert_eq!(
             calc_nd_classes(&random_graph, Options::optimized()).len(),
+            baseline(&random_graph).len()
+        );
+    }
+
+    #[test]
+    fn btree_vs_baseline() {
+        let random_graph = Graph::random_graph_nd_limited(1e2 as usize, 0.5, 20);
+
+        // test algorithm with degree filter against naive implementation
+        assert_eq!(
+            calc_nd_btree(&random_graph).len(),
             baseline(&random_graph).len()
         );
     }

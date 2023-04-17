@@ -17,9 +17,14 @@ fn nd_calc(c: &mut Criterion) {
         b.iter(|| calc_nd_classes(&graph_2, Options::new(true, false)))
     });
 
-    c.bench_function("ALL (10^2)", |b| {
+    c.bench_function("All (10^2)", |b| {
         let graph_2 = Graph::random_graph_nd_limited(1e2 as usize, 0.5, 20);
         b.iter(|| calc_nd_classes(&graph_2, Options::optimized()))
+    });
+
+    c.bench_function("BTree (10^2)", |b| {
+        let graph_2 = Graph::random_graph_nd_limited(1e2 as usize, 0.5, 20);
+        b.iter(|| calc_nd_btree(&graph_2))
     });
 }
 

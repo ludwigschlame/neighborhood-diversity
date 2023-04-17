@@ -165,9 +165,9 @@ impl Graph {
         Ok(was_present)
     }
 
-    // returns neighbors as a HashSet to enable neighborhood comparisons
+    // returns neighbors of given vertex
     // a vertex is not it's own neighbor except for self-loops
-    pub fn neighbors(&self, vertex: usize) -> HashSet<usize> {
+    pub fn neighbors(&self, vertex: usize) -> Vec<usize> {
         (0..self.vertex_count)
             .filter(|neighbor| self.adjacency_matrix[vertex][*neighbor])
             .collect()
