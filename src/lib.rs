@@ -32,10 +32,13 @@ impl Options {
 }
 
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
-    // collect degrees for all vertices
-    let degrees = (0..graph.vertex_count)
-        .map(|vertex| graph.degree(vertex))
-        .collect::<Vec<usize>>();
+    let mut degrees = Vec::new();
+    if options.degree_filter {
+        // collect degrees for all vertices
+        degrees = (0..graph.vertex_count)
+            .map(|vertex| graph.degree(vertex))
+            .collect::<Vec<usize>>();
+    }
 
     let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
 
@@ -64,6 +67,25 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
     type_connectivity_graph.connected_components()
 }
 
+#[cfg(test)]
+// naive algorithm that should be easily verifiable
+// used to test correctness of improved algorithms
+fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
+    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
+
+    for u in 0..graph.vertex_count {
+        for v in u..graph.vertex_count {
+            if same_type(graph, u, v) {
+                type_connectivity_graph
+                    .insert_edge(u, v)
+                    .expect("u and v are elements of range 0..vertex_count");
+            }
+        }
+    }
+
+    type_connectivity_graph.connected_components()
+}
+
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
     let mut u_neighbors = graph.neighbors(u);
     let mut v_neighbors = graph.neighbors(v);
@@ -75,42 +97,53 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
-    fn naive_algorithm() {
+    fn baseline_on_example() {
         let path = "examples/nd_01.txt";
         let input = std::fs::read_to_string(path)
-            .unwrap_or_else(|err| panic!("error reading '{}': {}", path, err));
+            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
 
         let graph = input
             .parse::<Graph>()
-            .unwrap_or_else(|err| panic!("error parsing input: {}", err));
+            .unwrap_or_else(|error| panic!("error parsing input: {}", error));
 
-        let neighborhood_diversity = calc_nd_classes(&graph, Options::naive()).len();
+        let neighborhood_diversity = baseline(&graph).len();
 
         assert_eq!(neighborhood_diversity, 6);
     }
 
     #[test]
-    fn degree_filter_vs_naive() {
-        let random_graph = Graph::random_graph(1e2 as usize, 1e-2);
+    fn naive_vs_baseline() {
+        let random_graph = Graph::random_graph(1e2 as usize, 0.5);
 
-        // test algorithm with degree filter against naive implementation
         assert_eq!(
-            calc_nd_classes(&random_graph, Options::new(true, false)).len(),
-            calc_nd_classes(&random_graph, Options::naive()).len()
+            calc_nd_classes(&random_graph, Options::naive()).len(),
+            baseline(&random_graph).len()
         );
     }
 
     #[test]
-    fn optimized_vs_naive() {
-        let random_graph = Graph::random_graph(1e2 as usize, 1e-2);
+    fn degree_filter_vs_baseline() {
+        let random_graph = Graph::random_graph(1e2 as usize, 0.5);
+
+        // test algorithm with degree filter against naive implementation
+        assert_eq!(
+            calc_nd_classes(&random_graph, Options::new(true, false)).len(),
+            baseline(&random_graph).len()
+        );
+    }
+
+    #[test]
+    fn optimized_vs_baseline() {
+        let random_graph = Graph::random_graph(1e2 as usize, 0.5);
 
         // test algorithm with degree filter against naive implementation
         assert_eq!(
             calc_nd_classes(&random_graph, Options::optimized()).len(),
-            calc_nd_classes(&random_graph, Options::naive()).len()
+            baseline(&random_graph).len()
         );
     }
 }
