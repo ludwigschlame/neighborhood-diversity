@@ -34,15 +34,15 @@ impl Options {
 }
 
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
-    let mut degrees = Vec::new();
+    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
+
+    let mut degrees: Vec<usize> = Vec::new();
     if options.degree_filter {
         // collect degrees for all vertices
         degrees = (0..graph.vertex_count)
             .map(|vertex| graph.degree(vertex))
-            .collect::<Vec<usize>>();
+            .collect();
     }
-
-    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
 
     for u in 0..graph.vertex_count {
         for v in u..graph.vertex_count {
@@ -52,9 +52,7 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
             }
 
             // only compare neighborhoods if v is not already in an equivalence class
-            if options.no_unnecessary_type_comparisons
-                && !type_connectivity_graph.neighbors(v).is_empty()
-            {
+            if options.no_unnecessary_type_comparisons && type_connectivity_graph.degree(v) != 0 {
                 continue;
             }
 
@@ -76,19 +74,21 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut independent_sets: BTreeMap<Vec<_>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count {
-        // let mut clique_type: Vec<_> = graph.neighbors(u).into_iter().chain([u]).collect();
+        // let mut clique_type: Vec<_> = graph
+        //     .neighbors(vertex)
+        //     .into_iter()
+        //     .chain([vertex])
+        //     .collect();
         // clique_type.sort();
         // let mut independent_set_type: Vec<_> = clique_type.clone();
-        // if let Ok(pos) = independent_set_type.binary_search(&u) {
+        // if let Ok(pos) = independent_set_type.binary_search(&vertex) {
         //     independent_set_type.remove(pos);
         // }
 
         let mut clique_type: Vec<bool> = vec![false; graph.vertex_count];
-
         for neighbor in graph.neighbors(vertex) {
             clique_type[neighbor] = true;
         }
-
         let independent_set_type = clique_type.clone();
         clique_type[vertex] = true;
 

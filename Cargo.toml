@@ -14,3 +14,6 @@ rand = "0.8"
 [[bench]]
 name = "random_graphs"
 harness = false
+
+[profile.release]
+debug = true # necessary for flamegraph

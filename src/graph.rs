@@ -200,14 +200,9 @@ impl Graph {
 
         for vertex in 0..self.vertex_count {
             if !visited[vertex] {
-                connected_components.push(Vec::new());
-                self.depth_first_search(
-                    vertex,
-                    &mut visited,
-                    connected_components
-                        .last_mut()
-                        .expect("just pushed a new entry, cannot be empty"),
-                );
+                let mut new_component = Vec::new();
+                self.depth_first_search(vertex, &mut visited, &mut new_component);
+                connected_components.push(new_component);
             }
         }
 
