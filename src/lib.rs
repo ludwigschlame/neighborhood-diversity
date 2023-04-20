@@ -1,6 +1,8 @@
 mod graph;
+mod graph_adj_list;
 
-pub use graph::Graph;
+// pub use graph::Graph;
+pub use graph_adj_list::Graph;
 
 use std::collections::BTreeMap;
 
@@ -34,18 +36,18 @@ impl Options {
 }
 
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
-    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
+    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count());
 
     let mut degrees: Vec<usize> = Vec::new();
     if options.degree_filter {
         // collect degrees for all vertices
-        degrees = (0..graph.vertex_count)
+        degrees = (0..graph.vertex_count())
             .map(|vertex| graph.degree(vertex))
             .collect();
     }
 
-    for u in 0..graph.vertex_count {
-        for v in u..graph.vertex_count {
+    for u in 0..graph.vertex_count() {
+        for v in u..graph.vertex_count() {
             // only compare neighborhoods if vertices have same degree
             if options.degree_filter && degrees[u] != degrees[v] {
                 continue;
@@ -73,7 +75,7 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut cliques: BTreeMap<Vec<_>, usize> = BTreeMap::new();
     let mut independent_sets: BTreeMap<Vec<_>, usize> = BTreeMap::new();
 
-    for vertex in 0..graph.vertex_count {
+    for vertex in 0..graph.vertex_count() {
         // let mut clique_type: Vec<_> = graph
         //     .neighbors(vertex)
         //     .into_iter()
@@ -85,7 +87,7 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
         //     independent_set_type.remove(pos);
         // }
 
-        let mut clique_type: Vec<bool> = vec![false; graph.vertex_count];
+        let mut clique_type: Vec<bool> = vec![false; graph.vertex_count()];
         for neighbor in graph.neighbors(vertex) {
             clique_type[neighbor] = true;
         }

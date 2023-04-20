@@ -7,8 +7,8 @@ use std::collections::HashSet;
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Graph {
-    pub vertex_count: usize,
-    pub adjacency_matrix: Vec<Vec<bool>>,
+    vertex_count: usize,
+    adjacency_matrix: Vec<Vec<bool>>,
 }
 
 impl Graph {
@@ -163,6 +163,11 @@ impl Graph {
         self.adjacency_matrix[u][v] = false;
         self.adjacency_matrix[v][u] = false;
         Ok(was_present)
+    }
+
+    // returns number of vertices in the graph
+    pub fn vertex_count(&self) -> usize {
+        self.vertex_count
     }
 
     // returns neighbors of given vertex
