@@ -1,5 +1,4 @@
 mod graph;
-mod graph_adj_list;
 
 pub use graph::Graph;
 
