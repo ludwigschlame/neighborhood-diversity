@@ -128,13 +128,19 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 mod tests {
     use super::*;
 
-    // naive algorithm that should be easily verifiable
-    // used to test correctness of improved algorithms
-    fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
-        let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count);
+    const VERTEX_COUNT: usize = 1e2 as usize;
+    const DENSITY: f64 = 0.5;
+    const ND_LIMIT: usize = 20;
 
-        for u in 0..graph.vertex_count {
-            for v in u..graph.vertex_count {
+    fn test_graph() -> Graph {
+        Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT)
+    }
+
+    fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
+        let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count());
+
+        for u in 0..graph.vertex_count() {
+            for v in u..graph.vertex_count() {
                 if same_type(graph, u, v) {
                     type_connectivity_graph
                         .insert_edge(u, v)
@@ -163,7 +169,7 @@ mod tests {
 
     #[test]
     fn naive_vs_baseline() {
-        let random_graph = Graph::random_graph(1e2 as usize, 0.5);
+        let random_graph = test_graph();
 
         assert_eq!(
             calc_nd_classes(&random_graph, Options::naive()).len(),
@@ -173,7 +179,7 @@ mod tests {
 
     #[test]
     fn degree_filter_vs_baseline() {
-        let random_graph = Graph::random_graph(1e2 as usize, 0.5);
+        let random_graph = test_graph();
 
         // test algorithm with degree filter against naive implementation
         assert_eq!(
@@ -183,8 +189,19 @@ mod tests {
     }
 
     #[test]
+    fn no_unnecessary_comparisons_vs_baseline() {
+        let random_graph = test_graph();
+
+        // test algorithm with degree filter against naive implementation
+        assert_eq!(
+            calc_nd_classes(&random_graph, Options::new(false, true)).len(),
+            baseline(&random_graph).len()
+        );
+    }
+
+    #[test]
     fn optimized_vs_baseline() {
-        let random_graph = Graph::random_graph(1e2 as usize, 0.5);
+        let random_graph = test_graph();
 
         // test algorithm with degree filter against naive implementation
         assert_eq!(
@@ -195,12 +212,120 @@ mod tests {
 
     #[test]
     fn btree_vs_baseline() {
-        let random_graph = Graph::random_graph_nd_limited(1e2 as usize, 0.5, 20);
+        let random_graph = test_graph();
 
         // test algorithm with degree filter against naive implementation
         assert_eq!(
             calc_nd_btree(&random_graph).len(),
             baseline(&random_graph).len()
         );
+    }
+
+    #[test]
+    fn empty_graph() {
+        let null_graph = Graph::null_graph(0);
+        let expected = 0;
+
+        // baseline
+        assert_eq!(baseline(&null_graph).len(), expected);
+
+        // naive
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::naive()).len(),
+            expected
+        );
+
+        // degree_filter
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+            expected
+        );
+
+        // no unnecessary comparisons
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+            expected
+        );
+
+        // optimized
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::optimized()).len(),
+            expected
+        );
+
+        // btree
+        assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+    }
+
+    #[test]
+    fn null_graph() {
+        let null_graph = Graph::null_graph(VERTEX_COUNT);
+        let expected = 1;
+
+        // baseline
+        assert_eq!(baseline(&null_graph).len(), expected);
+
+        // naive
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::naive()).len(),
+            expected
+        );
+
+        // degree_filter
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+            expected
+        );
+
+        // no unnecessary comparisons
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+            expected
+        );
+
+        // optimized
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::optimized()).len(),
+            expected
+        );
+
+        // btree
+        assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+    }
+
+    #[test]
+    fn complete_graph() {
+        let null_graph = Graph::complete_graph(VERTEX_COUNT);
+        let expected = 1;
+
+        // baseline
+        assert_eq!(baseline(&null_graph).len(), expected);
+
+        // naive
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::naive()).len(),
+            expected
+        );
+
+        // degree_filter
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+            expected
+        );
+
+        // no unnecessary comparisons
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+            expected
+        );
+
+        // optimized
+        assert_eq!(
+            calc_nd_classes(&null_graph, Options::optimized()).len(),
+            expected
+        );
+
+        // btree
+        assert_eq!(calc_nd_btree(&null_graph).len(), expected);
     }
 }
