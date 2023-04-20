@@ -4,7 +4,7 @@ use neighborhood_diversity::*;
 fn nd_calc(c: &mut Criterion) {
     const VERTEX_COUNT: usize = 1e2 as usize;
     const ND_LIMIT: usize = 20;
-    const DENSITY: f64 = 0.5;
+    const DENSITY: f32 = 0.5;
 
     println!("|-------------------|");
     println!("|   Graph Details   |");
@@ -15,28 +15,28 @@ fn nd_calc(c: &mut Criterion) {
     println!("|-------------------|");
 
     c.bench_function("Naive ALgorithm", |b| {
-        let graph_2 = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
-        b.iter(|| calc_nd_classes(&graph_2, Options::naive()))
+        let graph = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
+        b.iter(|| calc_nd_classes(&graph, Options::naive()));
     });
 
     c.bench_function("Limited Comparisons", |b| {
-        let graph_2 = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
-        b.iter(|| calc_nd_classes(&graph_2, Options::new(false, true)))
+        let graph = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
+        b.iter(|| calc_nd_classes(&graph, Options::new(false, true)));
     });
 
     c.bench_function("Degree Filter", |b| {
-        let graph_2 = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
-        b.iter(|| calc_nd_classes(&graph_2, Options::new(true, false)))
+        let graph = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
+        b.iter(|| calc_nd_classes(&graph, Options::new(true, false)));
     });
 
     c.bench_function("Optimized", |b| {
-        let graph_2 = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
-        b.iter(|| calc_nd_classes(&graph_2, Options::optimized()))
+        let graph = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
+        b.iter(|| calc_nd_classes(&graph, Options::optimized()));
     });
 
     c.bench_function("BTree", |b| {
-        let graph_2 = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
-        b.iter(|| calc_nd_btree(&graph_2))
+        let graph = Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT);
+        b.iter(|| calc_nd_btree(&graph));
     });
 }
 

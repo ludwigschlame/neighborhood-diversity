@@ -5,7 +5,7 @@ use rand::{distributions::Uniform, prelude::*};
 use std::collections::HashSet;
 
 #[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Graph {
     vertex_count: usize,
     adjacency_matrix: Vec<Vec<bool>>,
@@ -36,13 +36,13 @@ impl Graph {
 
     // constructs a random graph after Gilbert's model G(n, p)
     // every edge between distinct vertices independently exists with probability p
-    pub fn random_graph(vertex_count: usize, probability: f64) -> Self {
+    pub fn random_graph(vertex_count: usize, probability: f32) -> Self {
         let mut rng = rand::thread_rng();
         let mut random_graph = Self::null_graph(vertex_count);
 
         for u in 0..random_graph.vertex_count {
             for v in (u + 1)..random_graph.vertex_count {
-                if rng.gen_bool(probability.clamp(0.0, 1.0)) {
+                if rng.gen_bool(probability.clamp(0.0, 1.0).into()) {
                     random_graph
                         .insert_edge(u, v)
                         .expect("u and v are in range 0..vertex_count");
@@ -61,7 +61,7 @@ impl Graph {
     // finally, the sets of vertices are connected by edges analogous to the generator graph
     pub fn random_graph_nd_limited(
         vertex_count: usize,
-        probability: f64,
+        probability: f32,
         neighborhood_diversity_limit: usize,
     ) -> Self {
         let mut rng = rand::thread_rng();
@@ -92,19 +92,20 @@ impl Graph {
             }
 
             let mut set_start = Vec::from_iter(set_dividers);
-            set_start.sort();
+            set_start.sort_unstable();
             set_start
         };
 
         for u_gen in 0..generator_graph.vertex_count {
-            let set_end_u = match u_gen == generator_graph.vertex_count - 1 {
-                true => vertex_count,
-                false => set_start[u_gen + 1],
+            let set_end_u = if u_gen == generator_graph.vertex_count - 1 {
+                vertex_count
+            } else {
+                set_start[u_gen + 1]
             };
 
             // decides wether the neighborhood is a clique or an independent set
             // if neighborhood is a clique, inserts all edges between distinct vertices
-            if rng.gen_bool(probability) {
+            if rng.gen_bool(probability.into()) {
                 for u in set_start[u_gen]..set_end_u {
                     for v in (u + 1)..set_end_u {
                         random_graph.insert_edge(u, v).unwrap();
@@ -114,9 +115,10 @@ impl Graph {
 
             // inserts edges between vertex sets based on edges in the generator_graph
             for v_gen in generator_graph.neighbors(u_gen) {
-                let set_end_v = match v_gen == generator_graph.vertex_count - 1 {
-                    true => vertex_count,
-                    false => set_start[v_gen + 1],
+                let set_end_v = if v_gen == generator_graph.vertex_count - 1 {
+                    vertex_count
+                } else {
+                    set_start[v_gen + 1]
                 };
                 for u in set_start[u_gen]..set_end_u {
                     for v in set_start[v_gen]..set_end_v {
@@ -166,7 +168,7 @@ impl Graph {
     }
 
     // returns number of vertices in the graph
-    pub fn vertex_count(&self) -> usize {
+    pub const fn vertex_count(&self) -> usize {
         self.vertex_count
     }
 
@@ -183,17 +185,17 @@ impl Graph {
     pub fn degree(&self, vertex: usize) -> usize {
         self.adjacency_matrix[vertex]
             .iter()
-            .map(|is_neighbor| *is_neighbor as usize)
+            .map(|is_neighbor| usize::from(*is_neighbor))
             .sum::<usize>()
     }
 
     // returns actual density of given graph (number of edges / possible edges)
-    pub fn density(&self) -> f64 {
+    pub fn density(&self) -> f32 {
         self.adjacency_matrix
             .iter()
             .map(|row| row.iter().filter(|b| **b).count())
-            .sum::<usize>() as f64
-            / (self.vertex_count * self.vertex_count) as f64
+            .sum::<usize>() as f32
+            / (self.vertex_count * self.vertex_count) as f32
     }
 
     // keeps track of visited vertices and starts DFS from unvisited ones
@@ -279,7 +281,7 @@ impl Graph {
             // avoids borrow checker by generating vector of colors in it's own loop
             let group_count = coloring.len();
             for group_id in 0..group_count {
-                let hue = 360.0 / group_count as f32 * (group_id) as f32;
+                let hue = 360.0 / group_count as f32 * group_id as f32;
                 colors.push(
                     Hsl::from(hue, SATURATION, LUMINANCE)
                         .to_rgb()
@@ -332,7 +334,7 @@ impl Graph {
         for u in 0..self.vertex_count {
             for v in (u + 1)..self.vertex_count {
                 if self.adjacency_matrix[u][v] {
-                    vis_network.add_edge(u as u128, v as u128, None, false)
+                    vis_network.add_edge(u as u128, v as u128, None, false);
                 }
             }
         }
@@ -358,7 +360,7 @@ impl std::str::FromStr for Graph {
         // filter out comments and empty lines
         let mut relevant_lines = input
             .lines()
-            .map(|line| line.trim())
+            .map(str::trim)
             .filter(|line| !(line.is_empty() || line.starts_with('#') || line.starts_with("//")));
         // first relevant line should contain the number of vertices
         let vertex_count = relevant_lines
@@ -373,9 +375,9 @@ impl std::str::FromStr for Graph {
         relevant_lines.try_for_each(|edge| -> Result<(), Self::Err> {
             let parse_error = format!("expected comma-separated vertex ids, received: '{}'", edge);
 
-            let vertices = edge.split_once(',').ok_or(parse_error.clone())?;
+            let vertices = edge.split_once(',').ok_or_else(|| parse_error.clone())?;
             let u = vertices.0.parse().map_err(|_| parse_error.clone())?;
-            let v = vertices.1.parse().map_err(|_| parse_error)?;
+            let v = vertices.1.parse().map_err(|_| parse_error.clone())?;
             graph.insert_edge(u, v)?;
             Ok(())
         })?;

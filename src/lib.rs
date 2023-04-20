@@ -1,33 +1,35 @@
 mod graph;
 mod graph_adj_list;
 
-// pub use graph::Graph;
-pub use graph_adj_list::Graph;
+pub use graph::Graph;
 
 use std::collections::BTreeMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Options {
     degree_filter: bool,
     no_unnecessary_type_comparisons: bool,
 }
 
 impl Options {
-    pub fn new(degree_filter: bool, no_unnecessary_neighborhood_comparisons: bool) -> Self {
+    #[must_use]
+    pub const fn new(degree_filter: bool, no_unnecessary_neighborhood_comparisons: bool) -> Self {
         Self {
             degree_filter,
             no_unnecessary_type_comparisons: no_unnecessary_neighborhood_comparisons,
         }
     }
 
-    pub fn naive() -> Self {
+    #[must_use]
+    pub const fn naive() -> Self {
         Self {
             degree_filter: false,
             no_unnecessary_type_comparisons: false,
         }
     }
 
-    pub fn optimized() -> Self {
+    #[must_use]
+    pub const fn optimized() -> Self {
         Self {
             degree_filter: true,
             no_unnecessary_type_comparisons: true,
@@ -35,16 +37,18 @@ impl Options {
     }
 }
 
+#[must_use]
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
     let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count());
 
-    let mut degrees: Vec<usize> = Vec::new();
-    if options.degree_filter {
-        // collect degrees for all vertices
-        degrees = (0..graph.vertex_count())
+    // collect degrees for all vertices
+    let degrees: Vec<usize> = if options.degree_filter {
+        (0..graph.vertex_count())
             .map(|vertex| graph.degree(vertex))
-            .collect();
-    }
+            .collect()
+    } else {
+        vec![]
+    };
 
     for u in 0..graph.vertex_count() {
         for v in u..graph.vertex_count() {
@@ -69,6 +73,7 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
     type_connectivity_graph.connected_components()
 }
 
+#[must_use]
 pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut types: Vec<Vec<usize>> = Vec::new();
 
@@ -131,7 +136,7 @@ mod tests {
     use super::*;
 
     const VERTEX_COUNT: usize = 1e2 as usize;
-    const DENSITY: f64 = 0.5;
+    const DENSITY: f32 = 0.5;
     const ND_LIMIT: usize = 20;
 
     fn test_graph() -> Graph {
