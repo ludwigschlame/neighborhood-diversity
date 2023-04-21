@@ -4,48 +4,98 @@ use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
 use std::collections::HashSet;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Representation {
+    AdjacencyMatrix,
+    AdjacencyList,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum InternalRepresentation {
+    // 2d-vector where vec[u][v] == true iff there is an edge between u and v
+    AdjacencyMatrix(Vec<Vec<bool>>),
+    // vector of vectors where vec[u] contains all neighbors of u
+    AdjacencyList(Vec<Vec<usize>>),
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Graph {
     vertex_count: usize,
-    adjacency_matrix: Vec<Vec<bool>>,
+    representation: InternalRepresentation,
 }
 
 impl Graph {
     // constructs a graph with no edges
-    pub fn null_graph(vertex_count: usize) -> Self {
-        Self {
-            vertex_count,
-            adjacency_matrix: vec![vec![false; vertex_count]; vertex_count],
+    #[must_use]
+    pub fn null_graph(vertex_count: usize, representation: Representation) -> Self {
+        match representation {
+            Representation::AdjacencyMatrix => Self {
+                vertex_count,
+                representation: InternalRepresentation::AdjacencyMatrix(vec![
+                    vec![
+                        false;
+                        vertex_count
+                    ];
+                    vertex_count
+                ]),
+            },
+            Representation::AdjacencyList => Self {
+                vertex_count,
+                representation: InternalRepresentation::AdjacencyList(vec![vec![]; vertex_count]),
+            },
         }
     }
 
     // constructs a graph where every distinct pair of vertices is connected by an edge
-    pub fn complete_graph(vertex_count: usize) -> Self {
-        let mut adjacency_matrix = vec![vec![true; vertex_count]; vertex_count];
-        // remove self-loops
-        (0..vertex_count).for_each(|i| {
-            adjacency_matrix[i][i] = false;
-        });
+    #[must_use]
+    pub fn complete_graph(vertex_count: usize, representation: Representation) -> Self {
+        match representation {
+            Representation::AdjacencyMatrix => {
+                let mut adjacency_matrix = vec![vec![true; vertex_count]; vertex_count];
+                // remove self-loops
+                (0..vertex_count).for_each(|i| {
+                    adjacency_matrix[i][i] = false;
+                });
 
-        Self {
-            vertex_count,
-            adjacency_matrix,
+                Self {
+                    vertex_count,
+                    representation: InternalRepresentation::AdjacencyMatrix(adjacency_matrix),
+                }
+            }
+            Representation::AdjacencyList => {
+                let mut adjacency_list: Vec<Vec<usize>> = Vec::with_capacity(vertex_count);
+                for vertex in 0..vertex_count {
+                    adjacency_list.push(
+                        (0..vertex_count)
+                            .filter(|neighbor| *neighbor != vertex)
+                            .collect::<Vec<usize>>(),
+                    );
+                }
+
+                Self {
+                    vertex_count,
+                    representation: InternalRepresentation::AdjacencyList(adjacency_list),
+                }
+            }
         }
     }
 
     // constructs a random graph after Gilbert's model G(n, p)
     // every edge between distinct vertices independently exists with probability p
-    pub fn random_graph(vertex_count: usize, probability: f32) -> Self {
+    #[must_use]
+    pub fn random_graph(
+        vertex_count: usize,
+        probability: f32,
+        representation: Representation,
+    ) -> Self {
         let mut rng = rand::thread_rng();
-        let mut random_graph = Self::null_graph(vertex_count);
+        let mut random_graph = Self::null_graph(vertex_count, representation);
 
         for u in 0..random_graph.vertex_count {
             for v in (u + 1)..random_graph.vertex_count {
                 if rng.gen_bool(probability.clamp(0.0, 1.0).into()) {
-                    random_graph
-                        .insert_edge(u, v)
-                        .expect("u and v are in range 0..vertex_count");
+                    random_graph.insert_edge_unchecked(u, v)
                 }
             }
         }
@@ -59,14 +109,17 @@ impl Graph {
     // afterwards, for every vertex in the generator graph, a clique or an independent set
     // (based on the edge probability) is inserted into the resulting graph
     // finally, the sets of vertices are connected by edges analogous to the generator graph
+    #[must_use]
     pub fn random_graph_nd_limited(
         vertex_count: usize,
         probability: f32,
         neighborhood_diversity_limit: usize,
+        representation: Representation,
     ) -> Self {
         let mut rng = rand::thread_rng();
-        let generator_graph = Self::random_graph(neighborhood_diversity_limit, probability);
-        let mut random_graph = Self::null_graph(vertex_count);
+        let generator_graph =
+            Self::random_graph(neighborhood_diversity_limit, probability, representation);
+        let mut random_graph = Self::null_graph(vertex_count, representation);
 
         // randomly divides vertices into #neighborhood_diversity_limit many chunks
         // collects these dividers into sorted array as starting positions for the sets
@@ -108,13 +161,17 @@ impl Graph {
             if rng.gen_bool(probability.into()) {
                 for u in set_start[u_gen]..set_end_u {
                     for v in (u + 1)..set_end_u {
-                        random_graph.insert_edge(u, v).unwrap();
+                        random_graph.insert_edge_unchecked(u, v);
                     }
                 }
             }
 
             // inserts edges between vertex sets based on edges in the generator_graph
-            for v_gen in generator_graph.neighbors(u_gen) {
+            for &v_gen in generator_graph
+                .neighbors(u_gen)
+                .iter()
+                .filter(|&&neighbor| neighbor > u_gen)
+            {
                 let set_end_v = if v_gen == generator_graph.vertex_count - 1 {
                     vertex_count
                 } else {
@@ -122,7 +179,7 @@ impl Graph {
                 };
                 for u in set_start[u_gen]..set_end_u {
                     for v in set_start[v_gen]..set_end_v {
-                        random_graph.insert_edge(u, v).unwrap();
+                        random_graph.insert_edge_unchecked(u, v);
                     }
                 }
             }
@@ -131,7 +188,7 @@ impl Graph {
         random_graph
     }
 
-    // inserts edge (u, v) into the adjacency matrix
+    // inserts edge (u, v) into the graph
     // returns wether the edge was newly inserted:
     // graph did not contain edge: returns true
     // graph already contained edge: returns false
@@ -143,13 +200,43 @@ impl Graph {
 
         // undirected graph -> symmetrical adjacency matrix
         // thus we only need to check for one direction but change both
-        let newly_inserted = !self.adjacency_matrix[u][v];
-        self.adjacency_matrix[u][v] = true;
-        self.adjacency_matrix[v][u] = true;
-        Ok(newly_inserted)
+        match &mut self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                let newly_inserted = !adjacency_matrix[u][v];
+                adjacency_matrix[u][v] = true;
+                adjacency_matrix[v][u] = true;
+                Ok(newly_inserted)
+            }
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                if adjacency_list[u].contains(&v) {
+                    Ok(false)
+                } else {
+                    adjacency_list[u].push(v);
+                    adjacency_list[v].push(u);
+                    Ok(true)
+                }
+            }
+        }
     }
 
-    // removes edge (u, v) from the adjacency matrix
+    // inserts edge (u, v) into the graph without doing any sanity-checks
+    pub(crate) fn insert_edge_unchecked(&mut self, u: usize, v: usize) {
+        match &mut self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                adjacency_matrix[u][v] = true;
+                adjacency_matrix[v][u] = true;
+            }
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                if adjacency_list[u].contains(&v) {
+                } else {
+                    adjacency_list[u].push(v);
+                    adjacency_list[v].push(u);
+                }
+            }
+        }
+    }
+
+    // removes edge (u, v) from the graph
     // returns wether the edge was present:
     // graph did contain the edge: returns true
     // graph did not contain edge: returns false
@@ -161,46 +248,90 @@ impl Graph {
 
         // undirected graph -> symmetrical adjacency matrix
         // thus we only need to check for one direction but change both
-        let was_present = self.adjacency_matrix[u][v];
-        self.adjacency_matrix[u][v] = false;
-        self.adjacency_matrix[v][u] = false;
-        Ok(was_present)
+        match &mut self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                let was_present = adjacency_matrix[u][v];
+                adjacency_matrix[u][v] = false;
+                adjacency_matrix[u][v] = false;
+                adjacency_matrix[v][u] = false;
+                Ok(was_present)
+            }
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                if adjacency_list[u].contains(&v) {
+                    if let Some(pos) = adjacency_list[u].iter().position(|x| *x == v) {
+                        adjacency_list[u].remove(pos);
+                    }
+                    if let Some(pos) = adjacency_list[v].iter().position(|x| *x == u) {
+                        adjacency_list[v].remove(pos);
+                    }
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+        }
     }
 
     // returns number of vertices in the graph
+    #[must_use]
     pub const fn vertex_count(&self) -> usize {
         self.vertex_count
     }
 
+    #[must_use]
+    pub const fn representation(&self) -> Representation {
+        match self.representation {
+            InternalRepresentation::AdjacencyMatrix(_) => Representation::AdjacencyMatrix,
+            InternalRepresentation::AdjacencyList(_) => Representation::AdjacencyList,
+        }
+    }
+
     // returns neighbors of given vertex
     // a vertex is not it's own neighbor except for self-loops
+    #[must_use]
     pub fn neighbors(&self, vertex: usize) -> Vec<usize> {
-        (0..self.vertex_count)
-            .filter(|neighbor| self.adjacency_matrix[vertex][*neighbor])
-            .collect()
+        match &self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => (0..self.vertex_count)
+                .filter(|neighbor| adjacency_matrix[vertex][*neighbor])
+                .collect(),
+            InternalRepresentation::AdjacencyList(adjacency_list) => adjacency_list[vertex].clone(),
+        }
     }
 
     // returns degree of given vertex
     // a vertex is not it's own neighbor except for self-loops
+    #[must_use]
     pub fn degree(&self, vertex: usize) -> usize {
-        self.adjacency_matrix[vertex]
-            .iter()
-            .map(|is_neighbor| usize::from(*is_neighbor))
-            .sum::<usize>()
+        match &self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => adjacency_matrix[vertex]
+                .iter()
+                .map(|is_neighbor| usize::from(*is_neighbor))
+                .sum::<usize>(),
+            InternalRepresentation::AdjacencyList(adjacency_list) => adjacency_list[vertex].len(),
+        }
     }
 
     // returns actual density of given graph (number of edges / possible edges)
     pub fn density(&self) -> f32 {
-        self.adjacency_matrix
-            .iter()
-            .map(|row| row.iter().filter(|b| **b).count())
-            .sum::<usize>() as f32
-            / (self.vertex_count * self.vertex_count) as f32
+        match &self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                adjacency_matrix
+                    .iter()
+                    .map(|row| row.iter().filter(|b| **b).count())
+                    .sum::<usize>() as f32
+                    / (self.vertex_count * self.vertex_count) as f32
+            }
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                adjacency_list.iter().map(Vec::len).sum::<usize>() as f32
+                    / (self.vertex_count * self.vertex_count) as f32
+            }
+        }
     }
 
     // keeps track of visited vertices and starts DFS from unvisited ones
     // for each unvisited vertex a new entry is made in the connected_components vector
     // it will then be filled by the DFS
+    #[must_use]
     pub fn connected_components(&self) -> Vec<Vec<usize>> {
         let mut visited = vec![false; self.vertex_count];
         let mut connected_components: Vec<Vec<usize>> = vec![];
@@ -247,11 +378,19 @@ impl Graph {
     // following lines list one edge each
     // vertex indices are separated by a comma: u,v
     // adds comments starting with '#'
+    #[must_use]
     pub fn export(&self) -> String {
         let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", self.vertex_count);
         for u in 0..self.vertex_count {
             for v in u..self.vertex_count {
-                if self.adjacency_matrix[u][v] {
+                if match &self.representation {
+                    InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                        adjacency_matrix[u][v]
+                    }
+                    InternalRepresentation::AdjacencyList(adjacency_list) => {
+                        adjacency_list[u].contains(&v)
+                    }
+                } {
                     output.push_str(&format!("{},{}\n", u, v));
                 }
             }
@@ -333,7 +472,14 @@ impl Graph {
         // inserts edges corresponding to those from the original graph
         for u in 0..self.vertex_count {
             for v in (u + 1)..self.vertex_count {
-                if self.adjacency_matrix[u][v] {
+                if match &self.representation {
+                    InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                        adjacency_matrix[u][v]
+                    }
+                    InternalRepresentation::AdjacencyList(adjacency_list) => {
+                        adjacency_list[u].contains(&v)
+                    }
+                } {
                     vis_network.add_edge(u as u128, v as u128, None, false);
                 }
             }
@@ -367,7 +513,7 @@ impl std::str::FromStr for Graph {
             .next()
             .ok_or("input does not contain graph data")?
             .parse()?;
-        let mut graph = Self::null_graph(vertex_count);
+        let mut graph = Self::null_graph(vertex_count, Representation::AdjacencyList);
 
         // for each remaining line, tries to split once at comma
         // then tries to parse both sides as vertex indices
@@ -401,11 +547,11 @@ mod tests {
 
         let graph_truth = Graph {
             vertex_count: 3,
-            adjacency_matrix: vec![
-                vec![false, true, true],
-                vec![true, false, false],
-                vec![true, false, false],
-            ],
+            representation: InternalRepresentation::AdjacencyList(vec![
+                vec![1, 2],
+                vec![0],
+                vec![0],
+            ]),
         };
 
         assert_eq!(graph_parsed, graph_truth);
@@ -427,11 +573,11 @@ mod tests {
 
         let graph_truth = Graph {
             vertex_count: 3,
-            adjacency_matrix: vec![
-                vec![false, true, true],
-                vec![true, false, false],
-                vec![true, false, false],
-            ],
+            representation: InternalRepresentation::AdjacencyList(vec![
+                vec![1, 2],
+                vec![0],
+                vec![0],
+            ]),
         };
 
         assert_eq!(graph_parsed, graph_truth);

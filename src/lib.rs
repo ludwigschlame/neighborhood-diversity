@@ -1,6 +1,6 @@
 mod graph;
 
-pub use graph::Graph;
+pub use graph::{Graph, Representation::*};
 
 use std::collections::BTreeMap;
 
@@ -38,7 +38,8 @@ impl Options {
 
 #[must_use]
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
-    let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count());
+    let mut type_connectivity_graph =
+        Graph::null_graph(graph.vertex_count(), graph.representation());
 
     // collect degrees for all vertices
     let degrees: Vec<usize> = if options.degree_filter {
@@ -137,13 +138,14 @@ mod tests {
     const VERTEX_COUNT: usize = 1e2 as usize;
     const DENSITY: f32 = 0.5;
     const ND_LIMIT: usize = 20;
+    const REPRESENTATION: graph::Representation = AdjacencyMatrix;
 
     fn test_graph() -> Graph {
-        Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT)
+        Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, REPRESENTATION)
     }
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
-        let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count());
+        let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count(), AdjacencyMatrix);
 
         for u in 0..graph.vertex_count() {
             for v in u..graph.vertex_count() {
@@ -229,7 +231,7 @@ mod tests {
 
     #[test]
     fn empty_graph() {
-        let null_graph = Graph::null_graph(0);
+        let null_graph = Graph::null_graph(0, AdjacencyList);
         let expected = 0;
 
         // baseline
@@ -265,7 +267,7 @@ mod tests {
 
     #[test]
     fn null_graph() {
-        let null_graph = Graph::null_graph(VERTEX_COUNT);
+        let null_graph = Graph::null_graph(VERTEX_COUNT, AdjacencyList);
         let expected = 1;
 
         // baseline
@@ -301,7 +303,7 @@ mod tests {
 
     #[test]
     fn complete_graph() {
-        let null_graph = Graph::complete_graph(VERTEX_COUNT);
+        let null_graph = Graph::complete_graph(VERTEX_COUNT, AdjacencyList);
         let expected = 1;
 
         // baseline
