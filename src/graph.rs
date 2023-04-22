@@ -227,11 +227,8 @@ impl Graph {
                 adjacency_matrix[v][u] = true;
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                if adjacency_list[u].contains(&v) {
-                } else {
-                    adjacency_list[u].push(v);
-                    adjacency_list[v].push(u);
-                }
+                adjacency_list[u].push(v);
+                adjacency_list[v].push(u);
             }
         }
     }
