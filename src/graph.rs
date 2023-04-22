@@ -18,6 +18,15 @@ enum InternalRepresentation {
     AdjacencyList(Vec<Vec<usize>>),
 }
 
+impl From<&InternalRepresentation> for Representation {
+    fn from(representation: &InternalRepresentation) -> Self {
+        match representation {
+            InternalRepresentation::AdjacencyMatrix(_) => Self::AdjacencyMatrix,
+            InternalRepresentation::AdjacencyList(_) => Self::AdjacencyList,
+        }
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Graph {
@@ -276,11 +285,8 @@ impl Graph {
     }
 
     #[must_use]
-    pub const fn representation(&self) -> Representation {
-        match self.representation {
-            InternalRepresentation::AdjacencyMatrix(_) => Representation::AdjacencyMatrix,
-            InternalRepresentation::AdjacencyList(_) => Representation::AdjacencyList,
-        }
+    pub fn representation(&self) -> Representation {
+        Representation::from(&self.representation)
     }
 
     // returns neighbors of given vertex
