@@ -19,6 +19,7 @@ enum InternalRepresentation {
 }
 
 impl From<&InternalRepresentation> for Representation {
+    #[must_use]
     fn from(representation: &InternalRepresentation) -> Self {
         match representation {
             InternalRepresentation::AdjacencyMatrix(_) => Self::AdjacencyMatrix,
@@ -229,7 +230,7 @@ impl Graph {
     }
 
     // inserts edge (u, v) into the graph without doing any sanity-checks
-    pub(crate) fn insert_edge_unchecked(&mut self, u: usize, v: usize) {
+    fn insert_edge_unchecked(&mut self, u: usize, v: usize) {
         match &mut self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 adjacency_matrix[u][v] = true;
@@ -315,6 +316,7 @@ impl Graph {
     }
 
     // returns actual density of given graph (number of edges / possible edges)
+    #[must_use]
     pub fn density(&self) -> f32 {
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
@@ -492,6 +494,7 @@ impl Graph {
     }
 
     // enables the neighborhood density calculation to be called as a method on the graph
+    #[must_use]
     pub fn calc_nd_classes(&self, options: Options) -> Vec<Vec<usize>> {
         crate::calc_nd_classes(self, options)
     }

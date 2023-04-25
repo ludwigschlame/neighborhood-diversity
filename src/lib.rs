@@ -114,16 +114,17 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     types
 }
 
+#[must_use]
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
     let mut u_neighbors = graph.neighbors(u);
     let mut v_neighbors = graph.neighbors(v);
 
     // N(u) \ v
-    if let Some(pos) = u_neighbors.iter().position(|x| *x == v) {
+    if let Some(pos) = u_neighbors.iter().position(|&x| x == v) {
         u_neighbors.remove(pos);
     }
     // N(v) \ u
-    if let Some(pos) = v_neighbors.iter().position(|x| *x == u) {
+    if let Some(pos) = v_neighbors.iter().position(|&x| x == u) {
         v_neighbors.remove(pos);
     }
 
@@ -303,37 +304,37 @@ mod tests {
 
     #[test]
     fn complete_graph() {
-        let null_graph = Graph::complete_graph(VERTEX_COUNT, AdjacencyList);
+        let complete_graph = Graph::complete_graph(VERTEX_COUNT, AdjacencyList);
         let expected = 1;
 
         // baseline
-        assert_eq!(baseline(&null_graph).len(), expected);
+        assert_eq!(baseline(&complete_graph).len(), expected);
 
         // naive
         assert_eq!(
-            calc_nd_classes(&null_graph, Options::naive()).len(),
+            calc_nd_classes(&complete_graph, Options::naive()).len(),
             expected
         );
 
         // degree_filter
         assert_eq!(
-            calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+            calc_nd_classes(&complete_graph, Options::new(true, false)).len(),
             expected
         );
 
         // no unnecessary comparisons
         assert_eq!(
-            calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+            calc_nd_classes(&complete_graph, Options::new(false, true)).len(),
             expected
         );
 
         // optimized
         assert_eq!(
-            calc_nd_classes(&null_graph, Options::optimized()).len(),
+            calc_nd_classes(&complete_graph, Options::optimized()).len(),
             expected
         );
 
         // btree
-        assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+        assert_eq!(calc_nd_btree(&complete_graph).len(), expected);
     }
 }
