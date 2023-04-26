@@ -76,11 +76,11 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
 #[must_use]
 pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut types: Vec<Vec<usize>> = Vec::new();
-
     let mut cliques: BTreeMap<Vec<_>, usize> = BTreeMap::new();
     let mut independent_sets: BTreeMap<Vec<_>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count() {
+        // old, slower implementation
         // let mut clique_type: Vec<_> = graph
         //     .neighbors(vertex)
         //     .into_iter()
@@ -99,10 +99,58 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
         let independent_set_type = clique_type.clone();
         clique_type[vertex] = true;
 
-        if let Some(vertex_type) = cliques.get(&clique_type) {
-            types[*vertex_type].push(vertex);
-        } else if let Some(vertex_type) = independent_sets.get(&independent_set_type) {
-            types[*vertex_type].push(vertex);
+        if let Some(&vertex_type) = cliques.get(&clique_type.clone()) {
+            types[vertex_type].push(vertex);
+        } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type.clone()) {
+            types[vertex_type].push(vertex);
+        } else {
+            let vertex_type = types.len();
+            types.push(vec![vertex]);
+            cliques.insert(clique_type.clone(), vertex_type);
+            independent_sets.insert(independent_set_type.clone(), vertex_type);
+        }
+
+        // should be faster but isn't
+        // let vertex_type = *cliques.entry(clique_type.clone()).or_insert_with(|| {
+        //     *independent_sets
+        //         .entry(independent_set_type)
+        //         .or_insert_with(|| {
+        //             let vertex_type = types.len();
+        //             types.push(vec![]);
+        //             vertex_type
+        //         })
+        // });
+
+        // types[vertex_type].push(vertex);
+    }
+
+    types
+}
+
+#[must_use]
+pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
+    let mut types: Vec<Vec<usize>> = Vec::new();
+    let mut cliques: Vec<BTreeMap<Vec<_>, usize>> = vec![BTreeMap::new(); graph.vertex_count()];
+    let mut independent_sets: Vec<BTreeMap<Vec<_>, usize>> =
+        vec![BTreeMap::new(); graph.vertex_count()];
+    for vertex in 0..graph.vertex_count() {
+        let neighbors = graph.neighbors(vertex);
+        let degree = neighbors.len();
+
+        let mut clique_type: Vec<bool> = vec![false; graph.vertex_count()];
+        neighbors
+            .iter()
+            .for_each(|&neighbor| clique_type[neighbor] = true);
+        let independent_set_type = clique_type.clone();
+        clique_type[vertex] = true;
+
+        let cliques = cliques.get_mut(degree).unwrap();
+        let independent_sets = independent_sets.get_mut(degree).unwrap();
+
+        if let Some(&vertex_type) = cliques.get(&clique_type) {
+            types[vertex_type].push(vertex);
+        } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type) {
+            types[vertex_type].push(vertex);
         } else {
             let vertex_type = types.len();
             types.push(vec![vertex]);
@@ -231,6 +279,17 @@ mod tests {
     }
 
     #[test]
+    fn btree_degree_vs_baseline() {
+        let random_graph = test_graph();
+
+        // test algorithm with degree filter against naive implementation
+        assert_eq!(
+            calc_nd_btree_degree(&random_graph).len(),
+            baseline(&random_graph).len()
+        );
+    }
+
+    #[test]
     fn empty_graph() {
         let null_graph = Graph::null_graph(0, AdjacencyList);
         let expected = 0;
@@ -300,6 +359,9 @@ mod tests {
 
         // btree
         assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+
+        // btree degree
+        assert_eq!(calc_nd_btree_degree(&null_graph).len(), expected);
     }
 
     #[test]
@@ -336,5 +398,8 @@ mod tests {
 
         // btree
         assert_eq!(calc_nd_btree(&complete_graph).len(), expected);
+
+        // btree degree
+        assert_eq!(calc_nd_btree_degree(&complete_graph).len(), expected);
     }
 }

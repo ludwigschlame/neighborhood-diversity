@@ -29,17 +29,17 @@ fn nd_calc(c: &mut Criterion) {
             b.iter(|| calc_nd_classes(&graph, Options::naive()));
         });
 
-        // c.bench_function("Limited Comparisons", |b| {
-        //     let graph =
-        //         Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
-        //     b.iter(|| calc_nd_classes(&graph, Options::new(false, true)));
-        // });
+        c.bench_function("Limited Comparisons", |b| {
+            let graph =
+                Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
+            b.iter(|| calc_nd_classes(&graph, Options::new(false, true)));
+        });
 
-        // c.bench_function("Degree Filter", |b| {
-        //     let graph =
-        //         Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
-        //     b.iter(|| calc_nd_classes(&graph, Options::new(true, false)));
-        // });
+        c.bench_function("Degree Filter", |b| {
+            let graph =
+                Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
+            b.iter(|| calc_nd_classes(&graph, Options::new(true, false)));
+        });
 
         c.bench_function("Optimized", |b| {
             let graph =
@@ -51,6 +51,12 @@ fn nd_calc(c: &mut Criterion) {
             let graph =
                 Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
             b.iter(|| calc_nd_btree(&graph));
+        });
+
+        c.bench_function("BTree + Degree Filter", |b| {
+            let graph =
+                Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
+            b.iter(|| calc_nd_btree_degree(&graph));
         });
     }
 }
