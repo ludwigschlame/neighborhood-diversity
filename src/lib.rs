@@ -3,6 +3,7 @@ mod graph;
 pub use graph::{Graph, Representation::*};
 
 use std::collections::BTreeMap;
+use std::thread;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
@@ -163,6 +164,95 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
 }
 
 #[must_use]
+pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
+    #[derive(Debug, Default, Clone)]
+    struct Data {
+        types: Vec<Vec<usize>>,
+        cliques: BTreeMap<Vec<bool>, usize>,
+        independent_sets: BTreeMap<Vec<bool>, usize>,
+    }
+
+    const MAGIC_NUMBER: usize = 100;
+    let thread_count = graph.vertex_count() / MAGIC_NUMBER;
+    let mut thread_data: Vec<Data> = vec![Data::default(); thread_count];
+
+    thread::scope(|scope| {
+        for (thread_id, data) in thread_data.iter_mut().enumerate() {
+            scope.spawn(move || {
+                let start = thread_id * graph.vertex_count() / thread_count;
+                let end = (thread_id + 1) * graph.vertex_count() / thread_count;
+
+                for vertex in start..end {
+                    let mut clique_type: Vec<bool> = vec![false; graph.vertex_count()];
+                    for neighbor in graph.neighbors(vertex) {
+                        clique_type[neighbor] = true;
+                    }
+                    let independent_set_type = clique_type.clone();
+                    clique_type[vertex] = true;
+
+                    if let Some(&vertex_type) = data.cliques.get(&clique_type.clone()) {
+                        data.types[vertex_type].push(vertex);
+                    } else if let Some(&vertex_type) =
+                        data.independent_sets.get(&independent_set_type.clone())
+                    {
+                        data.types[vertex_type].push(vertex);
+                    } else {
+                        let vertex_type = data.types.len();
+                        data.types.push(vec![vertex]);
+                        data.cliques.insert(clique_type.clone(), vertex_type);
+                        data.independent_sets
+                            .insert(independent_set_type.clone(), vertex_type);
+                    }
+                }
+            });
+        }
+    });
+
+    // collect into last element
+    let mut collection = thread_data.pop().unwrap();
+
+    for data in thread_data.iter() {
+        let cliques_inverted: BTreeMap<usize, Vec<bool>> =
+            data.cliques.iter().map(|(k, v)| (*v, k.clone())).collect();
+
+        let independent_sets_inverted: BTreeMap<usize, Vec<bool>> = data
+            .independent_sets
+            .iter()
+            .map(|(k, v)| (*v, k.clone()))
+            .collect();
+
+        for (vertex_type, vertices) in data.types.iter().enumerate() {
+            if let Some(&get) = collection
+                .cliques
+                .get(cliques_inverted.get(&vertex_type).unwrap())
+            {
+                collection.types[get].extend(vertices);
+            } else if let Some(&get) = collection
+                .independent_sets
+                .get(independent_sets_inverted.get(&vertex_type).unwrap())
+            {
+                collection.types[get].extend(vertices);
+            } else {
+                // insert clique type into collection
+                collection.cliques.insert(
+                    cliques_inverted.get(&vertex_type).unwrap().clone(),
+                    collection.types.len(),
+                );
+                // insert independent set type into collection
+                collection.independent_sets.insert(
+                    independent_sets_inverted.get(&vertex_type).unwrap().clone(),
+                    collection.types.len(),
+                );
+                // add vertices as new type
+                collection.types.push(vertices.clone());
+            }
+        }
+    }
+
+    collection.types
+}
+
+#[must_use]
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
     let mut u_neighbors = graph.neighbors(u);
     let mut v_neighbors = graph.neighbors(v);
@@ -290,6 +380,17 @@ mod tests {
     }
 
     #[test]
+    fn btree_concurrent_vs_baseline() {
+        let random_graph = test_graph();
+
+        // test algorithm with degree filter against naive implementation
+        assert_eq!(
+            calc_nd_btree_concurrent(&random_graph).len(),
+            baseline(&random_graph).len()
+        );
+    }
+
+    #[test]
     fn empty_graph() {
         let null_graph = Graph::null_graph(0, AdjacencyList);
         let expected = 0;
@@ -362,6 +463,9 @@ mod tests {
 
         // btree degree
         assert_eq!(calc_nd_btree_degree(&null_graph).len(), expected);
+
+        // btree concurrent
+        assert_eq!(calc_nd_btree_concurrent(&null_graph).len(), expected);
     }
 
     #[test]
@@ -401,5 +505,8 @@ mod tests {
 
         // btree degree
         assert_eq!(calc_nd_btree_degree(&complete_graph).len(), expected);
+
+        // btree concurrent
+        assert_eq!(calc_nd_btree_concurrent(&complete_graph).len(), expected);
     }
 }

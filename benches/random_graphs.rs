@@ -58,6 +58,12 @@ fn nd_calc(c: &mut Criterion) {
                 Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
             b.iter(|| calc_nd_btree_degree(&graph));
         });
+
+        c.bench_function("BTree + Concurrency", |b| {
+            let graph =
+                Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
+            b.iter(|| calc_nd_btree_concurrent(&graph));
+        });
     }
 }
 
