@@ -173,7 +173,7 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
     }
 
     const MAGIC_NUMBER: usize = 100;
-    let thread_count = graph.vertex_count() / MAGIC_NUMBER;
+    let thread_count = graph.vertex_count() / MAGIC_NUMBER + 1;
     let mut thread_data: Vec<Data> = vec![Data::default(); thread_count];
 
     thread::scope(|scope| {
