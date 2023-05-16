@@ -2,7 +2,7 @@ use crate::Options;
 use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Representation {
@@ -234,6 +234,46 @@ impl Graph {
         }
 
         Graph::convert_representation(random_graph, representation)
+    }
+
+    // shuffles vertex ids while retaining the original graph structure
+    pub fn shuffle(&mut self) {
+        let vertex_count = self.vertex_count;
+        let mut rng = rand::thread_rng();
+        let mut vertex_ids: Vec<usize> = (0..vertex_count).collect();
+        vertex_ids.shuffle(&mut rng);
+
+        let mapping: HashMap<usize, usize> = vertex_ids.into_iter().enumerate().collect();
+
+        match &mut self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                let mut shuffled_adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
+
+                for u in 0..vertex_count {
+                    for v in 0..vertex_count {
+                        shuffled_adjacency_matrix[mapping[&u]][mapping[&v]] =
+                            adjacency_matrix[u][v];
+                    }
+                }
+
+                *adjacency_matrix = shuffled_adjacency_matrix;
+            }
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                adjacency_list.iter_mut().for_each(|neighborhood| {
+                    neighborhood
+                        .iter_mut()
+                        .for_each(|vertex_id| *vertex_id = mapping[vertex_id])
+                });
+
+                let mut shuffled_adjacency_list = vec![vec![]; vertex_count];
+
+                for (idx, idx_mapped) in mapping {
+                    shuffled_adjacency_list[idx_mapped] = adjacency_list[idx].clone();
+                }
+
+                *adjacency_list = shuffled_adjacency_list;
+            }
+        }
     }
 
     // inserts edge (u, v) into the graph

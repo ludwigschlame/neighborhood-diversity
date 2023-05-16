@@ -341,44 +341,44 @@ mod tests {
     #[test]
     fn naive_vs_baseline() {
         for graph in test_graphs() {
-        assert_eq!(
+            assert_eq!(
                 calc_nd_classes(&graph, Options::naive()).len(),
                 baseline(&graph).len()
-        );
-    }
+            );
+        }
     }
 
     #[test]
     fn degree_filter_vs_baseline() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
-        assert_eq!(
+            assert_eq!(
                 calc_nd_classes(&graph, Options::new(true, false)).len(),
                 baseline(&graph).len()
-        );
-    }
+            );
+        }
     }
 
     #[test]
     fn no_unnecessary_comparisons_vs_baseline() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
-        assert_eq!(
+            assert_eq!(
                 calc_nd_classes(&graph, Options::new(false, true)).len(),
                 baseline(&graph).len()
-        );
-    }
+            );
+        }
     }
 
     #[test]
     fn optimized_vs_baseline() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
-        assert_eq!(
+            assert_eq!(
                 calc_nd_classes(&graph, Options::optimized()).len(),
                 baseline(&graph).len()
-        );
-    }
+            );
+        }
     }
 
     #[test]
@@ -401,10 +401,10 @@ mod tests {
     fn btree_concurrent_vs_baseline() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
-        assert_eq!(
+            assert_eq!(
                 calc_nd_btree_concurrent(&graph).len(),
                 baseline(&graph).len()
-        );
+            );
         }
     }
 
@@ -412,37 +412,37 @@ mod tests {
     fn empty_graph() {
         REPRESENTATIONS.iter().for_each(|&representation| {
             let null_graph = Graph::null_graph(0, representation);
-        let expected = 0;
+            let expected = 0;
 
-        // baseline
-        assert_eq!(baseline(&null_graph).len(), expected);
+            // baseline
+            assert_eq!(baseline(&null_graph).len(), expected);
 
-        // naive
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::naive()).len(),
-            expected
-        );
+            // naive
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::naive()).len(),
+                expected
+            );
 
-        // degree_filter
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::new(true, false)).len(),
-            expected
-        );
+            // degree_filter
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+                expected
+            );
 
-        // no unnecessary comparisons
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::new(false, true)).len(),
-            expected
-        );
+            // no unnecessary comparisons
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+                expected
+            );
 
-        // optimized
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::optimized()).len(),
-            expected
-        );
+            // optimized
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::optimized()).len(),
+                expected
+            );
 
-        // btree
-        assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+            // btree
+            assert_eq!(calc_nd_btree(&null_graph).len(), expected);
         })
     }
 
@@ -450,43 +450,43 @@ mod tests {
     fn null_graph() {
         REPRESENTATIONS.iter().for_each(|&representation| {
             let null_graph = Graph::null_graph(VERTEX_COUNT, representation);
-        let expected = 1;
+            let expected = 1;
 
-        // baseline
-        assert_eq!(baseline(&null_graph).len(), expected);
+            // baseline
+            assert_eq!(baseline(&null_graph).len(), expected);
 
-        // naive
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::naive()).len(),
-            expected
-        );
+            // naive
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::naive()).len(),
+                expected
+            );
 
-        // degree_filter
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::new(true, false)).len(),
-            expected
-        );
+            // degree_filter
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+                expected
+            );
 
-        // no unnecessary comparisons
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::new(false, true)).len(),
-            expected
-        );
+            // no unnecessary comparisons
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+                expected
+            );
 
-        // optimized
-        assert_eq!(
-            calc_nd_classes(&null_graph, Options::optimized()).len(),
-            expected
-        );
+            // optimized
+            assert_eq!(
+                calc_nd_classes(&null_graph, Options::optimized()).len(),
+                expected
+            );
 
-        // btree
-        assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+            // btree
+            assert_eq!(calc_nd_btree(&null_graph).len(), expected);
 
-        // btree degree
-        assert_eq!(calc_nd_btree_degree(&null_graph).len(), expected);
+            // btree degree
+            assert_eq!(calc_nd_btree_degree(&null_graph).len(), expected);
 
-        // btree concurrent
-        assert_eq!(calc_nd_btree_concurrent(&null_graph).len(), expected);
+            // btree concurrent
+            assert_eq!(calc_nd_btree_concurrent(&null_graph).len(), expected);
         })
     }
 
@@ -494,43 +494,81 @@ mod tests {
     fn complete_graph() {
         REPRESENTATIONS.iter().for_each(|&representation| {
             let complete_graph = Graph::complete_graph(VERTEX_COUNT, representation);
-        let expected = 1;
+            let expected = 1;
 
-        // baseline
-        assert_eq!(baseline(&complete_graph).len(), expected);
+            // baseline
+            assert_eq!(baseline(&complete_graph).len(), expected);
 
-        // naive
-        assert_eq!(
-            calc_nd_classes(&complete_graph, Options::naive()).len(),
-            expected
-        );
+            // naive
+            assert_eq!(
+                calc_nd_classes(&complete_graph, Options::naive()).len(),
+                expected
+            );
 
-        // degree_filter
-        assert_eq!(
-            calc_nd_classes(&complete_graph, Options::new(true, false)).len(),
-            expected
-        );
+            // degree_filter
+            assert_eq!(
+                calc_nd_classes(&complete_graph, Options::new(true, false)).len(),
+                expected
+            );
 
-        // no unnecessary comparisons
-        assert_eq!(
-            calc_nd_classes(&complete_graph, Options::new(false, true)).len(),
-            expected
-        );
+            // no unnecessary comparisons
+            assert_eq!(
+                calc_nd_classes(&complete_graph, Options::new(false, true)).len(),
+                expected
+            );
 
-        // optimized
-        assert_eq!(
-            calc_nd_classes(&complete_graph, Options::optimized()).len(),
-            expected
-        );
+            // optimized
+            assert_eq!(
+                calc_nd_classes(&complete_graph, Options::optimized()).len(),
+                expected
+            );
 
-        // btree
-        assert_eq!(calc_nd_btree(&complete_graph).len(), expected);
+            // btree
+            assert_eq!(calc_nd_btree(&complete_graph).len(), expected);
 
-        // btree degree
-        assert_eq!(calc_nd_btree_degree(&complete_graph).len(), expected);
+            // btree degree
+            assert_eq!(calc_nd_btree_degree(&complete_graph).len(), expected);
 
-        // btree concurrent
-        assert_eq!(calc_nd_btree_concurrent(&complete_graph).len(), expected);
+            // btree concurrent
+            assert_eq!(calc_nd_btree_concurrent(&complete_graph).len(), expected);
         })
+    }
+
+    #[test]
+    fn shuffled_vs_baseline() {
+        for graph in test_graphs().iter_mut() {
+            let expected = baseline(graph).len();
+            graph.shuffle();
+
+            // baseline
+            assert_eq!(baseline(graph).len(), expected);
+
+            // naive
+            assert_eq!(calc_nd_classes(graph, Options::naive()).len(), expected);
+
+            // degree_filter
+            assert_eq!(
+                calc_nd_classes(graph, Options::new(true, false)).len(),
+                expected
+            );
+
+            // no unnecessary comparisons
+            assert_eq!(
+                calc_nd_classes(graph, Options::new(false, true)).len(),
+                expected
+            );
+
+            // optimized
+            assert_eq!(calc_nd_classes(graph, Options::optimized()).len(), expected);
+
+            // btree
+            assert_eq!(calc_nd_btree(graph).len(), expected);
+
+            // btree degree
+            assert_eq!(calc_nd_btree_degree(graph).len(), expected);
+
+            // btree concurrent
+            assert_eq!(calc_nd_btree_concurrent(graph).len(), expected);
+        }
     }
 }
