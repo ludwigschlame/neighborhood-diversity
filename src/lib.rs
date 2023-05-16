@@ -277,10 +277,15 @@ mod tests {
     const VERTEX_COUNT: usize = 1e2 as usize;
     const DENSITY: f32 = 0.5;
     const ND_LIMIT: usize = 20;
-    const REPRESENTATION: graph::Representation = AdjacencyMatrix;
+    const REPRESENTATIONS: &[graph::Representation] = &[AdjacencyMatrix, AdjacencyList];
 
-    fn test_graph() -> Graph {
-        Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, REPRESENTATION)
+    fn test_graphs() -> Vec<Graph> {
+        REPRESENTATIONS
+            .iter()
+            .map(|&representation| {
+                Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation)
+            })
+            .collect()
     }
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
@@ -297,6 +302,25 @@ mod tests {
         }
 
         type_connectivity_graph.connected_components()
+    }
+
+    fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
+        let mut u_neighbors = graph.neighbors(u);
+        let mut v_neighbors = graph.neighbors(v);
+
+        // N(u) \ v
+        if let Some(pos) = u_neighbors.iter().position(|&x| x == v) {
+            u_neighbors.remove(pos);
+        }
+        // N(v) \ u
+        if let Some(pos) = v_neighbors.iter().position(|&x| x == u) {
+            v_neighbors.remove(pos);
+        }
+
+        u_neighbors.sort_unstable();
+        v_neighbors.sort_unstable();
+
+        u_neighbors == v_neighbors
     }
 
     #[test]
@@ -316,83 +340,78 @@ mod tests {
 
     #[test]
     fn naive_vs_baseline() {
-        let random_graph = test_graph();
-
+        for graph in test_graphs() {
         assert_eq!(
-            calc_nd_classes(&random_graph, Options::naive()).len(),
-            baseline(&random_graph).len()
+                calc_nd_classes(&graph, Options::naive()).len(),
+                baseline(&graph).len()
         );
+    }
     }
 
     #[test]
     fn degree_filter_vs_baseline() {
-        let random_graph = test_graph();
-
         // test algorithm with degree filter against naive implementation
+        for graph in test_graphs() {
         assert_eq!(
-            calc_nd_classes(&random_graph, Options::new(true, false)).len(),
-            baseline(&random_graph).len()
+                calc_nd_classes(&graph, Options::new(true, false)).len(),
+                baseline(&graph).len()
         );
+    }
     }
 
     #[test]
     fn no_unnecessary_comparisons_vs_baseline() {
-        let random_graph = test_graph();
-
         // test algorithm with degree filter against naive implementation
+        for graph in test_graphs() {
         assert_eq!(
-            calc_nd_classes(&random_graph, Options::new(false, true)).len(),
-            baseline(&random_graph).len()
+                calc_nd_classes(&graph, Options::new(false, true)).len(),
+                baseline(&graph).len()
         );
+    }
     }
 
     #[test]
     fn optimized_vs_baseline() {
-        let random_graph = test_graph();
-
         // test algorithm with degree filter against naive implementation
+        for graph in test_graphs() {
         assert_eq!(
-            calc_nd_classes(&random_graph, Options::optimized()).len(),
-            baseline(&random_graph).len()
+                calc_nd_classes(&graph, Options::optimized()).len(),
+                baseline(&graph).len()
         );
+    }
     }
 
     #[test]
     fn btree_vs_baseline() {
-        let random_graph = test_graph();
-
         // test algorithm with degree filter against naive implementation
-        assert_eq!(
-            calc_nd_btree(&random_graph).len(),
-            baseline(&random_graph).len()
-        );
+        for graph in test_graphs() {
+            assert_eq!(calc_nd_btree(&graph).len(), baseline(&graph).len());
+        }
     }
 
     #[test]
     fn btree_degree_vs_baseline() {
-        let random_graph = test_graph();
-
         // test algorithm with degree filter against naive implementation
-        assert_eq!(
-            calc_nd_btree_degree(&random_graph).len(),
-            baseline(&random_graph).len()
-        );
+        for graph in test_graphs() {
+            assert_eq!(calc_nd_btree_degree(&graph).len(), baseline(&graph).len());
+        }
     }
 
     #[test]
     fn btree_concurrent_vs_baseline() {
-        let random_graph = test_graph();
-
         // test algorithm with degree filter against naive implementation
+        for graph in test_graphs() {
         assert_eq!(
-            calc_nd_btree_concurrent(&random_graph).len(),
-            baseline(&random_graph).len()
+                calc_nd_btree_concurrent(&graph).len(),
+                baseline(&graph).len()
         );
+        }
     }
 
     #[test]
     fn empty_graph() {
-        let null_graph = Graph::null_graph(0, AdjacencyList);
+        REPRESENTATIONS.iter().for_each(|&representation| {
+            let null_graph = Graph::null_graph(0, representation);
         let expected = 0;
 
         // baseline
@@ -424,11 +443,13 @@ mod tests {
 
         // btree
         assert_eq!(calc_nd_btree(&null_graph).len(), expected);
+        })
     }
 
     #[test]
     fn null_graph() {
-        let null_graph = Graph::null_graph(VERTEX_COUNT, AdjacencyList);
+        REPRESENTATIONS.iter().for_each(|&representation| {
+            let null_graph = Graph::null_graph(VERTEX_COUNT, representation);
         let expected = 1;
 
         // baseline
@@ -466,11 +487,13 @@ mod tests {
 
         // btree concurrent
         assert_eq!(calc_nd_btree_concurrent(&null_graph).len(), expected);
+        })
     }
 
     #[test]
     fn complete_graph() {
-        let complete_graph = Graph::complete_graph(VERTEX_COUNT, AdjacencyList);
+        REPRESENTATIONS.iter().for_each(|&representation| {
+            let complete_graph = Graph::complete_graph(VERTEX_COUNT, representation);
         let expected = 1;
 
         // baseline
@@ -508,5 +531,6 @@ mod tests {
 
         // btree concurrent
         assert_eq!(calc_nd_btree_concurrent(&complete_graph).len(), expected);
+        })
     }
 }
