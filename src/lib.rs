@@ -93,10 +93,7 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
         //     independent_set_type.remove(pos);
         // }
 
-        let mut clique_type: Vec<bool> = vec![false; graph.vertex_count()];
-        for neighbor in graph.neighbors(vertex) {
-            clique_type[neighbor] = true;
-        }
+        let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
         let independent_set_type = clique_type.clone();
         clique_type[vertex] = true;
 
@@ -138,10 +135,7 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
         let neighbors = graph.neighbors(vertex);
         let degree = neighbors.len();
 
-        let mut clique_type: Vec<bool> = vec![false; graph.vertex_count()];
-        neighbors
-            .iter()
-            .for_each(|&neighbor| clique_type[neighbor] = true);
+        let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
         let independent_set_type = clique_type.clone();
         clique_type[vertex] = true;
 
@@ -189,10 +183,7 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
                 let end = (thread_id + 1) * graph.vertex_count() / thread_count;
 
                 for vertex in start..end {
-                    let mut clique_type: Vec<bool> = vec![false; graph.vertex_count()];
-                    for neighbor in graph.neighbors(vertex) {
-                        clique_type[neighbor] = true;
-                    }
+                    let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
                     let independent_set_type = clique_type.clone();
                     clique_type[vertex] = true;
 
@@ -260,19 +251,15 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
 
 #[must_use]
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
-    let mut u_neighbors = graph.neighbors(u);
-    let mut v_neighbors = graph.neighbors(v);
+    let mut u_neighbors = graph.neighbors_as_bool_vector(u);
+    let mut v_neighbors = graph.neighbors_as_bool_vector(v);
 
     // N(u) \ v
-    if let Some(pos) = u_neighbors.iter().position(|&x| x == v) {
-        u_neighbors.remove(pos);
-    }
+    u_neighbors[v] = false;
     // N(v) \ u
-    if let Some(pos) = v_neighbors.iter().position(|&x| x == u) {
-        v_neighbors.remove(pos);
-    }
+    v_neighbors[u] = false;
 
-    // equal comparison works because 'graph.neighbors()' always results in same order
+    // equal comparison works because neighbors are bool vector
     u_neighbors == v_neighbors
 }
 
@@ -340,6 +327,36 @@ mod tests {
             .unwrap_or_else(|error| panic!("error parsing input: {}", error));
 
         let neighborhood_diversity = baseline(&graph).len();
+
+        assert_eq!(neighborhood_diversity, 6);
+    }
+
+    #[test]
+    fn baseline_on_example_shuffled() {
+        let path = "examples/nd_01_shuffled.txt";
+        let input = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
+
+        let graph = input
+            .parse::<Graph>()
+            .unwrap_or_else(|error| panic!("error parsing input: {}", error));
+
+        let neighborhood_diversity = baseline(&graph).len();
+
+        assert_eq!(neighborhood_diversity, 6);
+    }
+
+    #[test]
+    fn naive_vs_example_shuffled() {
+        let path = "examples/nd_01_shuffled.txt";
+        let input = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
+
+        let graph = input
+            .parse::<Graph>()
+            .unwrap_or_else(|error| panic!("error parsing input: {}", error));
+
+        let neighborhood_diversity = calc_nd_classes(&graph, Options::naive()).len();
 
         assert_eq!(neighborhood_diversity, 6);
     }

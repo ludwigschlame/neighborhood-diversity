@@ -380,6 +380,46 @@ impl Graph {
         }
     }
 
+    // returns neighbors of given vertex in sorted order
+    // takes time O(|V|)
+    #[must_use]
+    pub fn neighbors_sorted(&self, vertex: usize) -> Vec<usize> {
+        let mut neighbors = Vec::new();
+
+        let neighbors = match &self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => &adjacency_matrix[vertex],
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                neighbors.resize(self.vertex_count, false);
+                adjacency_list[vertex]
+                    .iter()
+                    .for_each(|&neighbor| neighbors[neighbor] = true);
+                &neighbors
+            }
+        };
+
+        (0..self.vertex_count)
+            .filter(|&neighbor| neighbors[neighbor])
+            .collect()
+    }
+
+    // returns neighbors of given vertex as a bool vector
+    // takes time O(1) for AdjacencyMatrix and O(|V|) for AdjacencyList
+    #[must_use]
+    pub fn neighbors_as_bool_vector(&self, vertex: usize) -> Vec<bool> {
+        match &self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
+                adjacency_matrix[vertex].clone()
+            }
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                let mut neighbors = vec![false; self.vertex_count];
+                adjacency_list[vertex]
+                    .iter()
+                    .for_each(|&neighbor| neighbors[neighbor] = true);
+                neighbors
+            }
+        }
+    }
+
     // returns degree of given vertex
     // a vertex is not it's own neighbor except for self-loops
     #[must_use]
