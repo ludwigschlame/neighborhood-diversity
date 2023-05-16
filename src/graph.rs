@@ -91,6 +91,41 @@ impl Graph {
         }
     }
 
+    // converts graph to the specified representation
+    // does nothing if graph is already in the correct representation
+    fn convert_representation(graph: Self, representation: Representation) -> Self {
+        match (graph.representation(), representation) {
+            (r, s) if r == s => graph,
+            (Representation::AdjacencyMatrix, Representation::AdjacencyList) => {
+                let adjacency_list = (0..graph.vertex_count())
+                    .map(|vertex| graph.neighbors(vertex))
+                    .collect::<Vec<Vec<usize>>>();
+
+                Self {
+                    vertex_count: adjacency_list.len(),
+                    representation: InternalRepresentation::AdjacencyList(adjacency_list),
+                }
+            }
+            (Representation::AdjacencyList, Representation::AdjacencyMatrix) => {
+                let mut adjacency_matrix =
+                    vec![vec![false; graph.vertex_count()]; graph.vertex_count()];
+
+                (0..graph.vertex_count()).for_each(|u| {
+                    graph.neighbors(u).iter().for_each(|&v| {
+                        adjacency_matrix[u][v] = true;
+                        adjacency_matrix[v][u] = true;
+                    })
+                });
+
+                Self {
+                    vertex_count: graph.vertex_count(),
+                    representation: InternalRepresentation::AdjacencyMatrix(adjacency_matrix),
+                }
+            }
+            _ => panic!("should be unreachable"),
+        }
+    }
+
     // constructs a random graph after Gilbert's model G(n, p)
     // every edge between distinct vertices independently exists with probability p
     #[must_use]
@@ -127,9 +162,12 @@ impl Graph {
         representation: Representation,
     ) -> Self {
         let mut rng = rand::thread_rng();
-        let generator_graph =
-            Self::random_graph(neighborhood_diversity_limit, probability, representation);
-        let mut random_graph = Self::null_graph(vertex_count, representation);
+        let generator_graph = Self::random_graph(
+            neighborhood_diversity_limit,
+            probability,
+            Representation::AdjacencyMatrix,
+        );
+        let mut random_graph = Self::null_graph(vertex_count, Representation::AdjacencyMatrix);
 
         // randomly divides vertices into #neighborhood_diversity_limit many chunks
         // collects these dividers into sorted array as starting positions for the sets
@@ -195,7 +233,7 @@ impl Graph {
             }
         }
 
-        random_graph
+        Graph::convert_representation(random_graph, representation)
     }
 
     // inserts edge (u, v) into the graph
