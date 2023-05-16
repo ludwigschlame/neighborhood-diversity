@@ -23,7 +23,7 @@ fn nd_calc(c: &mut Criterion) {
         println!("|---------------------|");
         println!();
 
-        c.bench_function("Naive ALgorithm", |b| {
+        c.bench_function("Naive Algorithm", |b| {
             let mut graph =
                 Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation);
             graph.shuffle();
