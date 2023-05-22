@@ -1,5 +1,7 @@
+mod co_tree;
 mod graph;
 
+pub use co_tree::*;
 pub use graph::{Graph, Representation::*};
 
 use std::collections::BTreeMap;

@@ -1,4 +1,4 @@
-use crate::Options;
+use crate::{CoTree, Options};
 use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
@@ -438,7 +438,7 @@ impl Graph {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 adjacency_matrix.iter().fold(0, |acc, row| {
                     acc + row
-                    .iter()
+                        .iter()
                         .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor))
                 }) as f32
                     / (self.vertex_count * self.vertex_count) as f32
@@ -655,6 +655,39 @@ impl std::str::FromStr for Graph {
         })?;
 
         Ok(graph)
+    }
+}
+
+impl From<crate::CoTree> for Graph {
+    fn from(co_tree: crate::CoTree) -> Self {
+        fn generate_graph(co_graph: &mut Graph, co_tree: CoTree) {
+            match co_tree {
+                crate::CoTree::Empty => {}
+                crate::CoTree::Leaf(_) => {}
+                crate::CoTree::Inner(_, operation, left_child, right_child) => {
+                    if operation == crate::Operation::DisjointSum {
+                        let left_start = left_child.min();
+                        let left_end = left_child.max();
+                        let right_start = right_child.min();
+                        let right_end = right_child.max();
+                        for u in left_start..=left_end {
+                            for v in right_start..=right_end {
+                                co_graph.insert_edge_unchecked(u, v);
+                            }
+                        }
+                    }
+                    generate_graph(co_graph, *left_child);
+                    generate_graph(co_graph, *right_child);
+                }
+            };
+        }
+
+        let vertex_count = co_tree.vertex_count();
+        let mut co_graph = Self::null_graph(vertex_count, Representation::AdjacencyMatrix);
+
+        generate_graph(&mut co_graph, co_tree);
+
+        co_graph
     }
 }
 
