@@ -337,7 +337,6 @@ impl Graph {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 let was_present = adjacency_matrix[u][v];
                 adjacency_matrix[u][v] = false;
-                adjacency_matrix[u][v] = false;
                 adjacency_matrix[v][u] = false;
                 Ok(was_present)
             }
@@ -427,8 +426,7 @@ impl Graph {
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => adjacency_matrix[vertex]
                 .iter()
-                .map(|is_neighbor| usize::from(*is_neighbor))
-                .sum::<usize>(),
+                .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor)),
             InternalRepresentation::AdjacencyList(adjacency_list) => adjacency_list[vertex].len(),
         }
     }
@@ -438,14 +436,18 @@ impl Graph {
     pub fn density(&self) -> f32 {
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
-                adjacency_matrix
+                adjacency_matrix.iter().fold(0, |acc, row| {
+                    acc + row
                     .iter()
-                    .map(|row| row.iter().filter(|b| **b).count())
-                    .sum::<usize>() as f32
+                        .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor))
+                }) as f32
                     / (self.vertex_count * self.vertex_count) as f32
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                adjacency_list.iter().map(Vec::len).sum::<usize>() as f32
+                // adjacency_list.iter().map(Vec::len).sum::<usize>() as f32
+                adjacency_list
+                    .iter()
+                    .fold(0, |acc, neighborhood| acc + neighborhood.len()) as f32
                     / (self.vertex_count * self.vertex_count) as f32
             }
         }
