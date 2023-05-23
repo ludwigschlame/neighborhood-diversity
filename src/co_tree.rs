@@ -83,19 +83,15 @@ impl CoTree {
 
     // returns neighborhood partition of given co-tree
     pub fn neighborhood_partition(&self) -> Vec<Vec<usize>> {
-        match self {
-            Self::Empty => vec![],
-            Self::Leaf(id) => vec![vec![*id]],
-            Self::Inner(..) => {
-                let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
-                let (_operation, neighborhood_class) =
-                    self._neighborhood_partition(&mut neighborhood_partition);
-                if !neighborhood_class.is_empty() {
-                    neighborhood_partition.push(neighborhood_class);
-                }
-                neighborhood_partition
-            }
+        let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
+
+        let (_, neighborhood_class) = self._neighborhood_partition(&mut neighborhood_partition);
+
+        if !neighborhood_class.is_empty() {
+            neighborhood_partition.push(neighborhood_class);
         }
+
+        neighborhood_partition
     }
 
     // recursively merges equivalence classes from left and right children
@@ -104,8 +100,8 @@ impl CoTree {
         neighborhood_partition: &mut Vec<Vec<usize>>,
     ) -> (Option<Operation>, Vec<usize>) {
         match self {
-            Self::Empty => panic!("invalid node state"),
-            Self::Leaf(id) => (None::<Operation>, vec![*id]),
+            Self::Empty => (None, vec![]),
+            Self::Leaf(id) => (None, vec![*id]),
             Self::Inner(_, operation, left_child, right_child) => {
                 let mut class = vec![];
                 let (left_operation, mut left_class) =
