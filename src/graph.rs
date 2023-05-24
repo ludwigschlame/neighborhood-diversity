@@ -630,10 +630,12 @@ impl std::str::FromStr for Graph {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         // filter out comments and empty lines
-        let mut relevant_lines = input
-            .lines()
-            .map(str::trim)
-            .filter(|line| !(line.is_empty() || line.starts_with('#') || line.starts_with('%')));
+        let mut relevant_lines = input.lines().map(str::trim).filter(|line| {
+            !(line.is_empty()
+                || line.starts_with('#')
+                || line.starts_with("//")
+                || line.starts_with('%'))
+        });
         // first relevant line should contain the number of vertices
         let vertex_count = relevant_lines
             .next()
@@ -706,10 +708,10 @@ mod tests {
 
         let graph_truth = Graph {
             vertex_count: 3,
-            representation: InternalRepresentation::AdjacencyList(vec![
-                vec![1, 2],
-                vec![0],
-                vec![0],
+            representation: InternalRepresentation::AdjacencyMatrix(vec![
+                vec![false, true, true],
+                vec![true, false, false],
+                vec![true, false, false],
             ]),
         };
 
@@ -732,10 +734,10 @@ mod tests {
 
         let graph_truth = Graph {
             vertex_count: 3,
-            representation: InternalRepresentation::AdjacencyList(vec![
-                vec![1, 2],
-                vec![0],
-                vec![0],
+            representation: InternalRepresentation::AdjacencyMatrix(vec![
+                vec![false, true, true],
+                vec![true, false, false],
+                vec![true, false, false],
             ]),
         };
 
