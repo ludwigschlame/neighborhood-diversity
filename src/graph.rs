@@ -624,7 +624,7 @@ impl Graph {
 // first line contains number of vertices
 // following lines list one edge each
 // vertex indices are separated by a comma: u,v
-// ignores: empty lines; lines starting with '#' or '//'
+// ignores: empty lines; lines starting with '#', '//' or '%'
 impl std::str::FromStr for Graph {
     type Err = Box<dyn std::error::Error>;
 
@@ -633,13 +633,13 @@ impl std::str::FromStr for Graph {
         let mut relevant_lines = input
             .lines()
             .map(str::trim)
-            .filter(|line| !(line.is_empty() || line.starts_with('#') || line.starts_with("//")));
+            .filter(|line| !(line.is_empty() || line.starts_with('#') || line.starts_with('%')));
         // first relevant line should contain the number of vertices
         let vertex_count = relevant_lines
             .next()
             .ok_or("input does not contain graph data")?
             .parse()?;
-        let mut graph = Self::null_graph(vertex_count, Representation::AdjacencyList);
+        let mut graph = Self::null_graph(vertex_count, Representation::AdjacencyMatrix);
 
         // for each remaining line, tries to split once at comma
         // then tries to parse both sides as vertex indices
