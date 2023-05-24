@@ -63,6 +63,30 @@ impl CoTree {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        match self {
+            CoTree::Empty => true,
+            CoTree::Leaf(_) => false,
+            CoTree::Inner(..) => false,
+        }
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        match self {
+            CoTree::Empty => false,
+            CoTree::Leaf(_) => true,
+            CoTree::Inner(..) => false,
+        }
+    }
+
+    pub fn is_inner(&self) -> bool {
+        match self {
+            CoTree::Empty => false,
+            CoTree::Leaf(_) => false,
+            CoTree::Inner(..) => true,
+        }
+    }
+
     // returns id of leftmost leaf
     pub fn min(&self) -> usize {
         match self {
@@ -103,24 +127,24 @@ impl CoTree {
             Self::Empty => (None, vec![]),
             Self::Leaf(id) => (None, vec![*id]),
             Self::Inner(_, operation, left_child, right_child) => {
-                let mut class = vec![];
+                let mut neighborhood_class = vec![];
                 let (left_operation, mut left_class) =
                     left_child._neighborhood_partition(neighborhood_partition);
                 let (right_operation, mut right_class) =
                     right_child._neighborhood_partition(neighborhood_partition);
 
-                if left_operation.is_none() || left_operation == Some(*operation) {
-                    class.append(&mut left_class);
+                if left_operation == Some(*operation) || left_child.is_leaf() {
+                    neighborhood_class.append(&mut left_class);
                 } else if !left_class.is_empty() {
                     neighborhood_partition.push(left_class);
                 }
-                if right_operation.is_none() || right_operation == Some(*operation) {
-                    class.append(&mut right_class);
+                if right_operation == Some(*operation) || right_child.is_leaf() {
+                    neighborhood_class.append(&mut right_class);
                 } else if !right_class.is_empty() {
                     neighborhood_partition.push(right_class);
                 }
 
-                (Some(*operation), class)
+                (Some(*operation), neighborhood_class)
             }
         }
     }
