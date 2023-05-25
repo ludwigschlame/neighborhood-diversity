@@ -271,6 +271,10 @@ impl Graph {
                     shuffled_adjacency_list[idx_mapped] = adjacency_list[idx].clone();
                 }
 
+                shuffled_adjacency_list
+                    .iter_mut()
+                    .for_each(|neighborhood| neighborhood.shuffle(&mut rng));
+
                 *adjacency_list = shuffled_adjacency_list;
             }
         }
