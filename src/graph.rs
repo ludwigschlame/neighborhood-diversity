@@ -93,34 +93,28 @@ impl Graph {
 
     // converts graph to the specified representation
     // does nothing if graph is already in the correct representation
-    fn convert_representation(graph: Self, representation: Representation) -> Self {
-        match (graph.representation(), representation) {
-            (r, s) if r == s => graph,
+    pub fn convert_representation(&mut self, representation: Representation) {
+        match (self.representation(), representation) {
+            (r, s) if r == s => { /* no changes necessary */ }
             (Representation::AdjacencyMatrix, Representation::AdjacencyList) => {
-                let adjacency_list = (0..graph.vertex_count())
-                    .map(|vertex| graph.neighbors(vertex))
+                let adjacency_list = (0..self.vertex_count())
+                    .map(|vertex| self.neighbors(vertex))
                     .collect::<Vec<Vec<usize>>>();
 
-                Self {
-                    vertex_count: adjacency_list.len(),
-                    representation: InternalRepresentation::AdjacencyList(adjacency_list),
-                }
+                self.representation = InternalRepresentation::AdjacencyList(adjacency_list);
             }
             (Representation::AdjacencyList, Representation::AdjacencyMatrix) => {
                 let mut adjacency_matrix =
-                    vec![vec![false; graph.vertex_count()]; graph.vertex_count()];
+                    vec![vec![false; self.vertex_count()]; self.vertex_count()];
 
-                (0..graph.vertex_count()).for_each(|u| {
-                    graph.neighbors(u).iter().for_each(|&v| {
+                (0..self.vertex_count()).for_each(|u| {
+                    self.neighbors(u).iter().for_each(|&v| {
                         adjacency_matrix[u][v] = true;
                         adjacency_matrix[v][u] = true;
                     });
                 });
 
-                Self {
-                    vertex_count: graph.vertex_count(),
-                    representation: InternalRepresentation::AdjacencyMatrix(adjacency_matrix),
-                }
+                self.representation = InternalRepresentation::AdjacencyMatrix(adjacency_matrix);
             }
             _ => panic!("should be unreachable"),
         }
@@ -233,7 +227,8 @@ impl Graph {
             }
         }
 
-        Self::convert_representation(random_graph, representation)
+        random_graph.convert_representation(representation);
+        random_graph
     }
 
     // shuffles vertex ids while retaining the original graph structure
