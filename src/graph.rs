@@ -10,7 +10,7 @@ pub enum Representation {
     AdjacencyList,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum InternalRepresentation {
     // 2d-vector where vec[u][v] == true iff there is an edge between u and v
     AdjacencyMatrix(Vec<Vec<bool>>),
@@ -28,7 +28,7 @@ impl From<&InternalRepresentation> for Representation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Graph {
     vertex_count: usize,
