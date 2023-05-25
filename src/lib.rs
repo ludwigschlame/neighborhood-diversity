@@ -263,6 +263,7 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     const VERTEX_COUNT: usize = 1e2 as usize;
     const DENSITY: f32 = 0.5;

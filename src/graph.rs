@@ -695,6 +695,7 @@ impl From<crate::CoTree> for Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn graph_from_str() {
