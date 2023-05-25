@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rand::{distributions::Uniform, prelude::*};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -6,7 +8,7 @@ pub enum Operation {
     DisjointSum,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CoTree {
     // corresponds to an empty graph
     Empty,
@@ -102,6 +104,41 @@ impl CoTree {
             Self::Empty => panic!("invalid node state"),
             Self::Leaf(id) => *id,
             Self::Inner(.., right_child) => right_child.max(),
+        }
+    }
+
+    pub fn shuffle(&mut self) {
+        let mut rng = rand::thread_rng();
+        let mut vertex_ids: Vec<usize> = (0..self.vertex_count()).collect();
+        vertex_ids.shuffle(&mut rng);
+        let mapping: HashMap<usize, usize> = vertex_ids.into_iter().enumerate().collect();
+
+        self._shuffle(&mapping);
+    }
+
+    fn _shuffle(&mut self, mapping: &HashMap<usize, usize>) {
+        match self {
+            CoTree::Empty => {}
+            CoTree::Leaf(id) => {
+                // dbg!(&id);
+                *id = mapping[id]
+            }
+            CoTree::Inner(.., left_child, right_child) => {
+                left_child._shuffle(mapping);
+                right_child._shuffle(mapping);
+            }
+        }
+    }
+
+    pub fn leaves(&self) -> Vec<usize> {
+        match self {
+            CoTree::Empty => vec![],
+            CoTree::Leaf(id) => vec![*id],
+            CoTree::Inner(.., left_child, right_child) => {
+                let mut leaves = left_child.leaves();
+                leaves.append(&mut right_child.leaves());
+                leaves
+            }
         }
     }
 
