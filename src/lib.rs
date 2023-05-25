@@ -11,14 +11,20 @@ use std::thread;
 pub struct Options {
     degree_filter: bool,
     no_unnecessary_type_comparisons: bool,
+    prefetch_neighbors: bool,
 }
 
 impl Options {
     #[must_use]
-    pub const fn new(degree_filter: bool, no_unnecessary_neighborhood_comparisons: bool) -> Self {
+    pub const fn new(
+        degree_filter: bool,
+        no_unnecessary_type_comparisons: bool,
+        prefetch_neighbors: bool,
+    ) -> Self {
         Self {
             degree_filter,
-            no_unnecessary_type_comparisons: no_unnecessary_neighborhood_comparisons,
+            no_unnecessary_type_comparisons,
+            prefetch_neighbors,
         }
     }
 
@@ -27,6 +33,7 @@ impl Options {
         Self {
             degree_filter: false,
             no_unnecessary_type_comparisons: false,
+            prefetch_neighbors: false,
         }
     }
 
@@ -35,6 +42,7 @@ impl Options {
         Self {
             degree_filter: true,
             no_unnecessary_type_comparisons: true,
+            prefetch_neighbors: true,
         }
     }
 }
@@ -53,6 +61,15 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
         vec![]
     };
 
+    // prefetch neighbors for all vertices
+    let neighbors: Vec<Vec<bool>> = if options.prefetch_neighbors {
+        (0..graph.vertex_count())
+            .map(|vertex| graph.neighbors_as_bool_vector(vertex))
+            .collect()
+    } else {
+        vec![]
+    };
+
     for u in 0..graph.vertex_count() {
         for v in u..graph.vertex_count() {
             // only compare neighborhoods if vertices have same degree
@@ -65,7 +82,24 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
                 continue;
             }
 
-            if same_type(graph, u, v) {
+            if options.prefetch_neighbors {
+                {
+                    let mut u_neighbors = neighbors[u].clone();
+                    let mut v_neighbors = neighbors[v].clone();
+
+                    // N(u) \ v
+                    u_neighbors[v] = false;
+                    // N(v) \ u
+                    v_neighbors[u] = false;
+
+                    // equal comparison works because neighbors are bool vector
+                    if u_neighbors == v_neighbors {
+                        type_connectivity_graph
+                            .insert_edge(u, v)
+                            .expect("u and v are elements of range 0..vertex_count");
+                    }
+                }
+            } else if same_type(graph, u, v) {
                 type_connectivity_graph
                     .insert_edge(u, v)
                     .expect("u and v are elements of range 0..vertex_count");
@@ -345,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn naive_vs_example_shuffled() {
+    fn naive_on_example_shuffled() {
         let path = "examples/nd_01_shuffled.txt";
         let input = std::fs::read_to_string(path)
             .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
@@ -360,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn naive_vs_baseline() {
+    fn baseline_vs_naive() {
         for graph in test_graphs() {
             assert_eq!(
                 calc_nd_classes(&graph, Options::naive()).len(),
@@ -370,29 +404,40 @@ mod tests {
     }
 
     #[test]
-    fn degree_filter_vs_baseline() {
+    fn baseline_vs_degree_filter() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
             assert_eq!(
-                calc_nd_classes(&graph, Options::new(true, false)).len(),
+                calc_nd_classes(&graph, Options::new(true, false, false)).len(),
                 baseline(&graph).len()
             );
         }
     }
 
     #[test]
-    fn no_unnecessary_comparisons_vs_baseline() {
+    fn baseline_vs_no_unnecessary_comparisons() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
             assert_eq!(
-                calc_nd_classes(&graph, Options::new(false, true)).len(),
+                calc_nd_classes(&graph, Options::new(false, true, false)).len(),
                 baseline(&graph).len()
             );
         }
     }
 
     #[test]
-    fn optimized_vs_baseline() {
+    fn baseline_vs_prefetch_neighbors() {
+        // test algorithm with degree filter against naive implementation
+        for graph in test_graphs() {
+            assert_eq!(
+                calc_nd_classes(&graph, Options::new(false, false, true)).len(),
+                baseline(&graph).len()
+            );
+        }
+    }
+
+    #[test]
+    fn baseline_vs_optimized() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
             assert_eq!(
@@ -403,7 +448,7 @@ mod tests {
     }
 
     #[test]
-    fn btree_vs_baseline() {
+    fn baseline_vs_btree() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
             assert_eq!(calc_nd_btree(&graph).len(), baseline(&graph).len());
@@ -411,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn btree_degree_vs_baseline() {
+    fn baseline_vs_btree_degree() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
             assert_eq!(calc_nd_btree_degree(&graph).len(), baseline(&graph).len());
@@ -419,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn btree_concurrent_vs_baseline() {
+    fn baseline_vs_btree_concurrent() {
         // test algorithm with degree filter against naive implementation
         for graph in test_graphs() {
             assert_eq!(
@@ -446,13 +491,13 @@ mod tests {
 
             // degree_filter
             assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+                calc_nd_classes(&null_graph, Options::new(true, false, false)).len(),
                 expected
             );
 
             // no unnecessary comparisons
             assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+                calc_nd_classes(&null_graph, Options::new(false, true, false)).len(),
                 expected
             );
 
@@ -484,13 +529,13 @@ mod tests {
 
             // degree_filter
             assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(true, false)).len(),
+                calc_nd_classes(&null_graph, Options::new(true, false, false)).len(),
                 expected
             );
 
             // no unnecessary comparisons
             assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(false, true)).len(),
+                calc_nd_classes(&null_graph, Options::new(false, true, false)).len(),
                 expected
             );
 
@@ -528,13 +573,13 @@ mod tests {
 
             // degree_filter
             assert_eq!(
-                calc_nd_classes(&complete_graph, Options::new(true, false)).len(),
+                calc_nd_classes(&complete_graph, Options::new(true, false, false)).len(),
                 expected
             );
 
             // no unnecessary comparisons
             assert_eq!(
-                calc_nd_classes(&complete_graph, Options::new(false, true)).len(),
+                calc_nd_classes(&complete_graph, Options::new(false, true, false)).len(),
                 expected
             );
 
@@ -556,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn shuffled_vs_baseline() {
+    fn shuffled() {
         for graph in &mut test_graphs() {
             let expected = baseline(graph).len();
             graph.shuffle();
@@ -569,13 +614,13 @@ mod tests {
 
             // degree_filter
             assert_eq!(
-                calc_nd_classes(graph, Options::new(true, false)).len(),
+                calc_nd_classes(graph, Options::new(true, false, false)).len(),
                 expected
             );
 
             // no unnecessary comparisons
             assert_eq!(
-                calc_nd_classes(graph, Options::new(false, true)).len(),
+                calc_nd_classes(graph, Options::new(false, true, false)).len(),
                 expected
             );
 
