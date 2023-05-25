@@ -672,12 +672,8 @@ impl From<crate::CoTree> for Graph {
                 crate::CoTree::Leaf(_) => {}
                 crate::CoTree::Inner(_, operation, left_child, right_child) => {
                     if operation == crate::Operation::DisjointSum {
-                        let left_start = left_child.min();
-                        let left_end = left_child.max();
-                        let right_start = right_child.min();
-                        let right_end = right_child.max();
-                        for u in left_start..=left_end {
-                            for v in right_start..=right_end {
+                        for u in left_child.leaves() {
+                            for v in right_child.leaves() {
                                 co_graph.insert_edge_unchecked(u, v);
                             }
                         }
