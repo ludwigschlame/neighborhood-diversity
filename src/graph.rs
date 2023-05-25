@@ -114,7 +114,7 @@ impl Graph {
                     graph.neighbors(u).iter().for_each(|&v| {
                         adjacency_matrix[u][v] = true;
                         adjacency_matrix[v][u] = true;
-                    })
+                    });
                 });
 
                 Self {
@@ -140,7 +140,7 @@ impl Graph {
         for u in 0..random_graph.vertex_count {
             for v in (u + 1)..random_graph.vertex_count {
                 if rng.gen_bool(probability.clamp(0.0, 1.0).into()) {
-                    random_graph.insert_edge_unchecked(u, v)
+                    random_graph.insert_edge_unchecked(u, v);
                 }
             }
         }
@@ -233,7 +233,7 @@ impl Graph {
             }
         }
 
-        Graph::convert_representation(random_graph, representation)
+        Self::convert_representation(random_graph, representation)
     }
 
     // shuffles vertex ids while retaining the original graph structure
@@ -259,11 +259,11 @@ impl Graph {
                 *adjacency_matrix = shuffled_adjacency_matrix;
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                adjacency_list.iter_mut().for_each(|neighborhood| {
+                for neighborhood in adjacency_list.iter_mut() {
                     neighborhood
                         .iter_mut()
-                        .for_each(|vertex_id| *vertex_id = mapping[vertex_id])
-                });
+                        .for_each(|vertex_id| *vertex_id = mapping[vertex_id]);
+                }
 
                 let mut shuffled_adjacency_list = vec![vec![]; vertex_count];
 
@@ -668,8 +668,7 @@ impl From<crate::CoTree> for Graph {
     fn from(co_tree: crate::CoTree) -> Self {
         fn generate_graph(co_graph: &mut Graph, co_tree: CoTree) {
             match co_tree {
-                crate::CoTree::Empty => {}
-                crate::CoTree::Leaf(_) => {}
+                crate::CoTree::Leaf(_) | crate::CoTree::Empty => {}
                 crate::CoTree::Inner(_, operation, left_child, right_child) => {
                     if operation == crate::Operation::DisjointSum {
                         for u in left_child.leaves() {

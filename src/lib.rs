@@ -169,13 +169,8 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
     }
 
     const MAGIC_NUMBER: usize = 100;
-    let thread_count = (graph.vertex_count() / MAGIC_NUMBER + 1).min(
-        if let Ok(max_threads) = thread::available_parallelism() {
-            max_threads.into()
-        } else {
-            8
-        },
-    );
+    let thread_count = (graph.vertex_count() / MAGIC_NUMBER + 1)
+        .min(thread::available_parallelism().map_or(8, std::convert::Into::into));
     let mut thread_data: Vec<Data> = vec![Data::default(); thread_count];
 
     thread::scope(|scope| {
@@ -210,7 +205,7 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
     // collect into last element
     let mut collection = thread_data.pop().unwrap();
 
-    for data in thread_data.iter() {
+    for data in &thread_data {
         let cliques_inverted: BTreeMap<usize, Vec<bool>> =
             data.cliques.iter().map(|(k, v)| (*v, k.clone())).collect();
 
@@ -435,7 +430,7 @@ mod tests {
 
     #[test]
     fn empty_graph() {
-        REPRESENTATIONS.iter().for_each(|&representation| {
+        for &representation in REPRESENTATIONS.iter() {
             let null_graph = Graph::null_graph(0, representation);
             let expected = 0;
 
@@ -468,12 +463,12 @@ mod tests {
 
             // btree
             assert_eq!(calc_nd_btree(&null_graph).len(), expected);
-        })
+        }
     }
 
     #[test]
     fn null_graph() {
-        REPRESENTATIONS.iter().for_each(|&representation| {
+        for &representation in REPRESENTATIONS.iter() {
             let null_graph = Graph::null_graph(VERTEX_COUNT, representation);
             let expected = 1;
 
@@ -512,12 +507,12 @@ mod tests {
 
             // btree concurrent
             assert_eq!(calc_nd_btree_concurrent(&null_graph).len(), expected);
-        })
+        }
     }
 
     #[test]
     fn complete_graph() {
-        REPRESENTATIONS.iter().for_each(|&representation| {
+        for &representation in REPRESENTATIONS.iter() {
             let complete_graph = Graph::complete_graph(VERTEX_COUNT, representation);
             let expected = 1;
 
@@ -556,12 +551,12 @@ mod tests {
 
             // btree concurrent
             assert_eq!(calc_nd_btree_concurrent(&complete_graph).len(), expected);
-        })
+        }
     }
 
     #[test]
     fn shuffled_vs_baseline() {
-        for graph in test_graphs().iter_mut() {
+        for graph in &mut test_graphs() {
             let expected = baseline(graph).len();
             graph.shuffle();
 

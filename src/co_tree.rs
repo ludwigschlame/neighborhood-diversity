@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rand::{distributions::Uniform, prelude::*};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Operation {
     DisjointUnion,
     DisjointSum,
@@ -22,6 +22,7 @@ pub enum CoTree {
 
 impl CoTree {
     // calls random tree generator with initial offset 0
+    #[must_use]
     pub fn random_tree(vertex_count: usize, density: f32) -> Self {
         Self::_random_tree(vertex_count, density, 0)
     }
@@ -57,7 +58,8 @@ impl CoTree {
     }
 
     // returns vertex count
-    pub fn vertex_count(&self) -> usize {
+    #[must_use]
+    pub const fn vertex_count(&self) -> usize {
         match self {
             Self::Empty => 0,
             Self::Leaf(_) => 1,
@@ -65,31 +67,32 @@ impl CoTree {
         }
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         match self {
-            CoTree::Empty => true,
-            CoTree::Leaf(_) => false,
-            CoTree::Inner(..) => false,
+            Self::Empty => true,
+            Self::Leaf(..) | Self::Inner(..) => false,
         }
     }
 
-    pub fn is_leaf(&self) -> bool {
+    #[must_use]
+    pub const fn is_leaf(&self) -> bool {
         match self {
-            CoTree::Empty => false,
-            CoTree::Leaf(_) => true,
-            CoTree::Inner(..) => false,
+            Self::Leaf(..) => true,
+            Self::Empty | Self::Inner(..) => false,
         }
     }
 
-    pub fn is_inner(&self) -> bool {
+    #[must_use]
+    pub const fn is_inner(&self) -> bool {
         match self {
-            CoTree::Empty => false,
-            CoTree::Leaf(_) => false,
-            CoTree::Inner(..) => true,
+            Self::Inner(..) => true,
+            Self::Empty | Self::Leaf(..) => false,
         }
     }
 
     // returns id of leftmost leaf
+    #[must_use]
     pub fn min(&self) -> usize {
         match self {
             Self::Empty => panic!("invalid node state"),
@@ -99,6 +102,7 @@ impl CoTree {
     }
 
     // returns id of rightmost leaf
+    #[must_use]
     pub fn max(&self) -> usize {
         match self {
             Self::Empty => panic!("invalid node state"),
@@ -118,23 +122,23 @@ impl CoTree {
 
     fn _shuffle(&mut self, mapping: &HashMap<usize, usize>) {
         match self {
-            CoTree::Empty => {}
-            CoTree::Leaf(id) => {
-                // dbg!(&id);
-                *id = mapping[id]
+            Self::Empty => {}
+            Self::Leaf(id) => {
+                *id = mapping[id];
             }
-            CoTree::Inner(.., left_child, right_child) => {
+            Self::Inner(.., left_child, right_child) => {
                 left_child._shuffle(mapping);
                 right_child._shuffle(mapping);
             }
         }
     }
 
+    #[must_use]
     pub fn leaves(&self) -> Vec<usize> {
         match self {
-            CoTree::Empty => vec![],
-            CoTree::Leaf(id) => vec![*id],
-            CoTree::Inner(.., left_child, right_child) => {
+            Self::Empty => vec![],
+            Self::Leaf(id) => vec![*id],
+            Self::Inner(.., left_child, right_child) => {
                 let mut leaves = left_child.leaves();
                 leaves.append(&mut right_child.leaves());
                 leaves
@@ -143,6 +147,7 @@ impl CoTree {
     }
 
     // returns neighborhood partition of given co-tree
+    #[must_use]
     pub fn neighborhood_partition(&self) -> Vec<Vec<usize>> {
         let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
 
