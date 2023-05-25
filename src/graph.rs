@@ -502,13 +502,12 @@ impl Graph {
         }
     }
 
-    // returns graph in string representation in a format that can be parsed back into a graph
+    // saves a text representation that can be parsed back into a graph
     // first line contains number of vertices
     // following lines list one edge each
     // vertex indices are separated by a comma: u,v
     // adds comments starting with '#'
-    #[must_use]
-    pub fn export(&self) -> String {
+    pub fn export(&self, path: &str) {
         let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", self.vertex_count);
         for u in 0..self.vertex_count {
             for v in u..self.vertex_count {
@@ -525,7 +524,7 @@ impl Graph {
             }
         }
 
-        output
+        std::fs::write(path, output).expect("Unable to write file");
     }
 
     // saves an html document showing the graph in visual form
