@@ -112,53 +112,28 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
 
 #[must_use]
 pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
-    let mut types: Vec<Vec<usize>> = Vec::new();
+    let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
     let mut cliques: BTreeMap<Vec<_>, usize> = BTreeMap::new();
     let mut independent_sets: BTreeMap<Vec<_>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count() {
-        // old, slower implementation
-        // let mut clique_type: Vec<_> = graph
-        //     .neighbors(vertex)
-        //     .into_iter()
-        //     .chain([vertex])
-        //     .collect();
-        // clique_type.sort();
-        // let mut independent_set_type: Vec<_> = clique_type.clone();
-        // if let Ok(pos) = independent_set_type.binary_search(&vertex) {
-        //     independent_set_type.remove(pos);
-        // }
-
         let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
         let independent_set_type = clique_type.clone();
         clique_type[vertex] = true;
 
-        if let Some(&vertex_type) = cliques.get(&clique_type.clone()) {
-            types[vertex_type].push(vertex);
-        } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type.clone()) {
-            types[vertex_type].push(vertex);
+        if let Some(&vertex_type) = cliques.get(&clique_type) {
+            neighborhood_partition[vertex_type].push(vertex);
+        } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type) {
+            neighborhood_partition[vertex_type].push(vertex);
         } else {
-            let vertex_type = types.len();
-            types.push(vec![vertex]);
-            cliques.insert(clique_type.clone(), vertex_type);
-            independent_sets.insert(independent_set_type.clone(), vertex_type);
+            let vertex_type = neighborhood_partition.len();
+            neighborhood_partition.push(vec![vertex]);
+            cliques.insert(clique_type, vertex_type);
+            independent_sets.insert(independent_set_type, vertex_type);
         }
-
-        // should be faster but isn't
-        // let vertex_type = *cliques.entry(clique_type.clone()).or_insert_with(|| {
-        //     *independent_sets
-        //         .entry(independent_set_type)
-        //         .or_insert_with(|| {
-        //             let vertex_type = types.len();
-        //             types.push(vec![]);
-        //             vertex_type
-        //         })
-        // });
-
-        // types[vertex_type].push(vertex);
     }
 
-    types
+    neighborhood_partition
 }
 
 #[must_use]
@@ -476,7 +451,7 @@ mod tests {
 
     #[test]
     fn empty_graph() {
-        for &representation in REPRESENTATIONS.iter() {
+        for &representation in REPRESENTATIONS {
             let null_graph = Graph::null_graph(0, representation);
             let expected = 0;
 
@@ -514,7 +489,7 @@ mod tests {
 
     #[test]
     fn null_graph() {
-        for &representation in REPRESENTATIONS.iter() {
+        for &representation in REPRESENTATIONS {
             let null_graph = Graph::null_graph(VERTEX_COUNT, representation);
             let expected = 1;
 
@@ -558,7 +533,7 @@ mod tests {
 
     #[test]
     fn complete_graph() {
-        for &representation in REPRESENTATIONS.iter() {
+        for &representation in REPRESENTATIONS {
             let complete_graph = Graph::complete_graph(VERTEX_COUNT, representation);
             let expected = 1;
 
