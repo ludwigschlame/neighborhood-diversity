@@ -2,6 +2,7 @@ use crate::{CoTree, Options};
 use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,7 +79,7 @@ impl Graph {
                 for vertex in 0..vertex_count {
                     adjacency_list.push(
                         (0..vertex_count)
-                            .filter(|neighbor| *neighbor != vertex)
+                            .filter(|&neighbor| neighbor != vertex)
                             .collect::<Vec<usize>>(),
                     );
                 }
@@ -244,33 +245,42 @@ impl Graph {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 let mut shuffled_adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
 
-                for u in 0..vertex_count {
-                    for v in 0..vertex_count {
-                        shuffled_adjacency_matrix[mapping[&u]][mapping[&v]] =
-                            adjacency_matrix[u][v];
-                    }
-                }
+                shuffled_adjacency_matrix
+                    .par_iter_mut()
+                    .enumerate()
+                    .flat_map(|(u, neighborhood)| {
+                        neighborhood
+                            .par_iter_mut()
+                            .enumerate()
+                            .map(move |(v, is_neighbor)| (u, v, is_neighbor))
+                    })
+                    .for_each(|(u, v, is_neighbor)| {
+                        *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]]
+                    });
 
                 *adjacency_matrix = shuffled_adjacency_matrix;
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                for neighborhood in adjacency_list.iter_mut() {
+                // permute vertex ids
+                adjacency_list.par_iter_mut().for_each(|neighborhood| {
                     neighborhood
-                        .iter_mut()
+                        .par_iter_mut()
                         .for_each(|vertex_id| *vertex_id = mapping[vertex_id]);
-                }
+                });
 
-                let mut shuffled_adjacency_list = vec![vec![]; vertex_count];
-
+                // permute neighborhoods
+                let mut tmp_adjacency_list = vec![vec![]; vertex_count];
                 for (idx, idx_mapped) in mapping {
-                    shuffled_adjacency_list[idx_mapped] = adjacency_list[idx].clone();
+                    tmp_adjacency_list[idx_mapped] = adjacency_list[idx].clone();
                 }
 
-                shuffled_adjacency_list
-                    .iter_mut()
-                    .for_each(|neighborhood| neighborhood.shuffle(&mut rng));
+                // shuffle neighborhoods
+                tmp_adjacency_list.par_iter_mut().for_each(|neighborhood| {
+                    let mut rng = thread_rng();
+                    neighborhood.shuffle(&mut rng);
+                });
 
-                *adjacency_list = shuffled_adjacency_list;
+                *adjacency_list = tmp_adjacency_list;
             }
         }
     }

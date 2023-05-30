@@ -113,8 +113,8 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
 #[must_use]
 pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
-    let mut cliques: BTreeMap<Vec<_>, usize> = BTreeMap::new();
-    let mut independent_sets: BTreeMap<Vec<_>, usize> = BTreeMap::new();
+    let mut cliques: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
+    let mut independent_sets: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count() {
         let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
@@ -139,8 +139,8 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
 #[must_use]
 pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut types: Vec<Vec<usize>> = Vec::new();
-    let mut cliques: Vec<BTreeMap<Vec<_>, usize>> = vec![BTreeMap::new(); graph.vertex_count()];
-    let mut independent_sets: Vec<BTreeMap<Vec<_>, usize>> =
+    let mut cliques: Vec<BTreeMap<Vec<bool>, usize>> = vec![BTreeMap::new(); graph.vertex_count()];
+    let mut independent_sets: Vec<BTreeMap<Vec<bool>, usize>> =
         vec![BTreeMap::new(); graph.vertex_count()];
     for vertex in 0..graph.vertex_count() {
         let neighbors = graph.neighbors(vertex);
