@@ -69,26 +69,17 @@ impl CoTree {
 
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        match self {
-            Self::Empty => true,
-            Self::Leaf(..) | Self::Inner(..) => false,
-        }
+        matches!(self, Self::Empty)
     }
 
     #[must_use]
     pub const fn is_leaf(&self) -> bool {
-        match self {
-            Self::Leaf(..) => true,
-            Self::Empty | Self::Inner(..) => false,
-        }
+        matches!(self, Self::Leaf(..))
     }
 
     #[must_use]
     pub const fn is_inner(&self) -> bool {
-        match self {
-            Self::Inner(..) => true,
-            Self::Empty | Self::Leaf(..) => false,
-        }
+        matches!(self, Self::Inner(..))
     }
 
     // returns id of leftmost leaf

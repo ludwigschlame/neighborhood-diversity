@@ -138,7 +138,7 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
 
 #[must_use]
 pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
-    let mut types: Vec<Vec<usize>> = Vec::new();
+    let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
     let mut cliques: Vec<BTreeMap<Vec<bool>, usize>> = vec![BTreeMap::new(); graph.vertex_count()];
     let mut independent_sets: Vec<BTreeMap<Vec<bool>, usize>> =
         vec![BTreeMap::new(); graph.vertex_count()];
@@ -154,25 +154,25 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
         let independent_sets = independent_sets.get_mut(degree).unwrap();
 
         if let Some(&vertex_type) = cliques.get(&clique_type) {
-            types[vertex_type].push(vertex);
+            neighborhood_partition[vertex_type].push(vertex);
         } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type) {
-            types[vertex_type].push(vertex);
+            neighborhood_partition[vertex_type].push(vertex);
         } else {
-            let vertex_type = types.len();
-            types.push(vec![vertex]);
+            let vertex_type = neighborhood_partition.len();
+            neighborhood_partition.push(vec![vertex]);
             cliques.insert(clique_type, vertex_type);
             independent_sets.insert(independent_set_type, vertex_type);
         }
     }
 
-    types
+    neighborhood_partition
 }
 
 #[must_use]
 pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
     #[derive(Debug, Default, Clone)]
     struct Data {
-        types: Vec<Vec<usize>>,
+        neighborhood_partition: Vec<Vec<usize>>,
         cliques: BTreeMap<Vec<bool>, usize>,
         independent_sets: BTreeMap<Vec<bool>, usize>,
     }
@@ -194,14 +194,14 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
                     clique_type[vertex] = true;
 
                     if let Some(&vertex_type) = data.cliques.get(&clique_type.clone()) {
-                        data.types[vertex_type].push(vertex);
+                        data.neighborhood_partition[vertex_type].push(vertex);
                     } else if let Some(&vertex_type) =
                         data.independent_sets.get(&independent_set_type.clone())
                     {
-                        data.types[vertex_type].push(vertex);
+                        data.neighborhood_partition[vertex_type].push(vertex);
                     } else {
-                        let vertex_type = data.types.len();
-                        data.types.push(vec![vertex]);
+                        let vertex_type = data.neighborhood_partition.len();
+                        data.neighborhood_partition.push(vec![vertex]);
                         data.cliques.insert(clique_type.clone(), vertex_type);
                         data.independent_sets
                             .insert(independent_set_type.clone(), vertex_type);
@@ -224,35 +224,35 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
             .map(|(k, v)| (*v, k.clone()))
             .collect();
 
-        for (vertex_type, vertices) in data.types.iter().enumerate() {
+        for (vertex_type, vertices) in data.neighborhood_partition.iter().enumerate() {
             if let Some(&get) = collection
                 .cliques
                 .get(cliques_inverted.get(&vertex_type).unwrap())
             {
-                collection.types[get].extend(vertices);
+                collection.neighborhood_partition[get].extend(vertices);
             } else if let Some(&get) = collection
                 .independent_sets
                 .get(independent_sets_inverted.get(&vertex_type).unwrap())
             {
-                collection.types[get].extend(vertices);
+                collection.neighborhood_partition[get].extend(vertices);
             } else {
                 // insert clique type into collection
                 collection.cliques.insert(
                     cliques_inverted.get(&vertex_type).unwrap().clone(),
-                    collection.types.len(),
+                    collection.neighborhood_partition.len(),
                 );
                 // insert independent set type into collection
                 collection.independent_sets.insert(
                     independent_sets_inverted.get(&vertex_type).unwrap().clone(),
-                    collection.types.len(),
+                    collection.neighborhood_partition.len(),
                 );
                 // add vertices as new type
-                collection.types.push(vertices.clone());
+                collection.neighborhood_partition.push(vertices.clone());
             }
         }
     }
 
-    collection.types
+    collection.neighborhood_partition
 }
 
 #[must_use]
