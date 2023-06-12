@@ -49,12 +49,13 @@ impl Options {
 
 #[must_use]
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
-    let mut type_connectivity_graph =
-        Graph::null_graph(graph.vertex_count(), graph.representation());
+    let vertex_count = graph.vertex_count();
+    // let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
+    let mut classified = vec![None::<usize>; vertex_count];
 
     // collect degrees for all vertices
     let degrees: Vec<usize> = if options.degree_filter {
-        (0..graph.vertex_count())
+        (0..vertex_count)
             .map(|vertex| graph.degree(vertex))
             .collect()
     } else {
@@ -70,15 +71,28 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
         vec![]
     };
 
-    for u in 0..graph.vertex_count() {
-        for v in u..graph.vertex_count() {
-            // only compare neighborhoods if vertices have same degree
-            if options.degree_filter && degrees[u] != degrees[v] {
+    let mut nd: usize = 0;
+
+    for u in 0..vertex_count {
+        // only compare neighborhoods if v is not already in an equivalence class
+        if options.no_unnecessary_type_comparisons && classified[u].is_some() {
+            continue;
+        }
+
+        let current_class = classified[u].unwrap_or_else(|| {
+            classified[u] = Some(nd);
+            nd += 1;
+            nd - 1
+        });
+
+        for v in (u + 1)..vertex_count {
+            // only compare neighborhoods if v is not already in an equivalence class
+            if options.no_unnecessary_type_comparisons && classified[v].is_some() {
                 continue;
             }
 
-            // only compare neighborhoods if v is not already in an equivalence class
-            if options.no_unnecessary_type_comparisons && type_connectivity_graph.degree(v) != 0 {
+            // only compare neighborhoods if vertices have same degree
+            if options.degree_filter && degrees[u] != degrees[v] {
                 continue;
             }
 
@@ -94,20 +108,91 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
 
                     // equal comparison works because neighbors are bool vector
                     if u_neighbors == v_neighbors {
-                        type_connectivity_graph
-                            .insert_edge(u, v)
-                            .expect("u and v are elements of range 0..vertex_count");
+                        classified[v] = Some(current_class);
                     }
                 }
             } else if same_type(graph, u, v) {
-                type_connectivity_graph
-                    .insert_edge(u, v)
-                    .expect("u and v are elements of range 0..vertex_count");
+                classified[v] = Some(current_class);
+            }
+
+            if same_type(graph, u, v) {
+                classified[v] = Some(current_class);
             }
         }
     }
 
-    type_connectivity_graph.connected_components()
+    let mut neighborhood_partition = vec![vec![]; nd];
+    classified.iter().enumerate().for_each(|(vertex, class)| {
+        neighborhood_partition[class.unwrap()].push(vertex);
+    });
+
+    neighborhood_partition
+}
+
+#[must_use]
+pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
+    let vertex_count = graph.vertex_count();
+    let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
+    let mut classified = vec![false; vertex_count];
+
+    // collect degrees for all vertices
+    let degrees: Vec<usize> = if options.degree_filter {
+        (0..vertex_count)
+            .map(|vertex| graph.degree(vertex))
+            .collect()
+    } else {
+        vec![]
+    };
+
+    // prefetch neighbors for all vertices
+    let neighbors: Vec<Vec<bool>> = if options.prefetch_neighbors {
+        (0..graph.vertex_count())
+            .map(|vertex| graph.neighbors_as_bool_vector(vertex))
+            .collect()
+    } else {
+        vec![]
+    };
+
+    for u in 0..vertex_count {
+        if classified[u] {
+            continue;
+        }
+
+        let mut neighborhood_class = vec![u];
+        for v in (u + 1)..vertex_count {
+            // only compare neighborhoods if v is not already in an equivalence class
+            if options.no_unnecessary_type_comparisons && classified[v] {
+                continue;
+            }
+
+            // only compare neighborhoods if vertices have same degree
+            if options.degree_filter && degrees[u] != degrees[v] {
+                continue;
+            }
+
+            if options.prefetch_neighbors {
+                let mut u_neighbors = neighbors[u].clone();
+                let mut v_neighbors = neighbors[v].clone();
+
+                // N(u) \ v
+                u_neighbors[v] = false;
+                // N(v) \ u
+                v_neighbors[u] = false;
+
+                if u_neighbors == v_neighbors {
+                    classified[v] = true;
+                    neighborhood_class.push(v);
+                }
+            } else if same_type(graph, u, v) {
+                classified[v] = true;
+                neighborhood_class.push(v);
+            }
+        }
+        neighborhood_partition.push(neighborhood_class);
+    }
+
+    // type_connectivity_graph.connected_components()
+    neighborhood_partition
 }
 
 #[must_use]
