@@ -16,7 +16,7 @@ pub enum CoTree {
     // args: (vertex id)
     Leaf(usize),
     // inner node of co-tree
-    // args: (operation, left child, right child, vertex count)
+    // args: (vertex count, operation, left child, right child)
     Inner(usize, Operation, Box<Self>, Box<Self>),
 }
 
@@ -82,26 +82,6 @@ impl CoTree {
         matches!(self, Self::Inner(..))
     }
 
-    // returns id of leftmost leaf
-    #[must_use]
-    pub fn min(&self) -> usize {
-        match self {
-            Self::Empty => panic!("invalid node state"),
-            Self::Leaf(id) => *id,
-            Self::Inner(.., left_child, _) => left_child.min(),
-        }
-    }
-
-    // returns id of rightmost leaf
-    #[must_use]
-    pub fn max(&self) -> usize {
-        match self {
-            Self::Empty => panic!("invalid node state"),
-            Self::Leaf(id) => *id,
-            Self::Inner(.., right_child) => right_child.max(),
-        }
-    }
-
     pub fn shuffle(&mut self) {
         let mut rng = rand::thread_rng();
         let mut vertex_ids: Vec<usize> = (0..self.vertex_count()).collect();
@@ -130,9 +110,7 @@ impl CoTree {
             Self::Empty => vec![],
             Self::Leaf(id) => vec![*id],
             Self::Inner(.., left_child, right_child) => {
-                let mut leaves = left_child.leaves();
-                leaves.append(&mut right_child.leaves());
-                leaves
+                [left_child.leaves(), right_child.leaves()].concat()
             }
         }
     }
