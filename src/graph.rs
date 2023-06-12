@@ -1,4 +1,4 @@
-use crate::{CoTree, Options};
+use crate::{CoTree, MDTree, Options};
 use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
@@ -255,7 +255,7 @@ impl Graph {
                             .map(move |(v, is_neighbor)| (u, v, is_neighbor))
                     })
                     .for_each(|(u, v, is_neighbor)| {
-                        *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]]
+                        *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]];
                     });
 
                 *adjacency_matrix = shuffled_adjacency_matrix;
@@ -425,6 +425,14 @@ impl Graph {
                     .for_each(|&neighbor| neighbors[neighbor] = true);
                 neighbors
             }
+        }
+    }
+
+    #[must_use]
+    pub fn is_edge(&self, u: usize, v: usize) -> bool {
+        match &self.representation {
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => adjacency_matrix[u][v],
+            InternalRepresentation::AdjacencyList(adjacency_list) => adjacency_list[u].contains(&v),
         }
     }
 
@@ -693,6 +701,58 @@ impl From<crate::CoTree> for Graph {
         generate_graph(&mut co_graph, co_tree);
 
         co_graph
+    }
+}
+
+impl From<crate::MDTree> for Graph {
+    fn from(md_tree: crate::MDTree) -> Self {
+        fn generate_graph(graph: &mut Graph, md_tree: MDTree) {
+            match md_tree {
+                crate::MDTree::Leaf(_) | crate::MDTree::Empty => {}
+                crate::MDTree::Inner(_, node_type, children) => {
+                    match node_type {
+                        crate::NodeType::Prime(prime_graph) => {
+                            for u_gen in 0..prime_graph.vertex_count() {
+                                for &v_gen in prime_graph
+                                    .neighbors(u_gen)
+                                    .iter()
+                                    .filter(|&&neighbor| neighbor > u_gen)
+                                {
+                                    for u in children[u_gen].leaves() {
+                                        for v in children[v_gen].leaves() {
+                                            graph.insert_edge_unchecked(u, v);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        crate::NodeType::Series => {
+                            for child_1 in 0..children.len() {
+                                for child_2 in (child_1 + 1)..children.len() {
+                                    for u in children[child_1].leaves() {
+                                        for v in children[child_2].leaves() {
+                                            graph.insert_edge_unchecked(u, v);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        crate::NodeType::Parallel => {}
+                    };
+
+                    for child in children {
+                        generate_graph(graph, child);
+                    }
+                }
+            };
+        }
+
+        let vertex_count = md_tree.vertex_count();
+        let mut graph = Self::null_graph(vertex_count, Representation::AdjacencyMatrix);
+
+        generate_graph(&mut graph, md_tree);
+
+        graph
     }
 }
 

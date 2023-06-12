@@ -1,8 +1,10 @@
 mod co_tree;
 mod graph;
+mod md_tree;
 
 pub use co_tree::*;
 pub use graph::{Graph, Representation::*};
+pub use md_tree::*;
 
 use std::collections::BTreeMap;
 use std::thread;
