@@ -13,20 +13,14 @@ use std::thread;
 pub struct Options {
     degree_filter: bool,
     no_unnecessary_type_comparisons: bool,
-    prefetch_neighbors: bool,
 }
 
 impl Options {
     #[must_use]
-    pub const fn new(
-        degree_filter: bool,
-        no_unnecessary_type_comparisons: bool,
-        prefetch_neighbors: bool,
-    ) -> Self {
+    pub const fn new(degree_filter: bool, no_unnecessary_type_comparisons: bool) -> Self {
         Self {
             degree_filter,
             no_unnecessary_type_comparisons,
-            prefetch_neighbors,
         }
     }
 
@@ -35,7 +29,6 @@ impl Options {
         Self {
             degree_filter: false,
             no_unnecessary_type_comparisons: false,
-            prefetch_neighbors: false,
         }
     }
 
@@ -44,7 +37,6 @@ impl Options {
         Self {
             degree_filter: true,
             no_unnecessary_type_comparisons: true,
-            prefetch_neighbors: true,
         }
     }
 }
@@ -52,8 +44,8 @@ impl Options {
 #[must_use]
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
     let vertex_count = graph.vertex_count();
-    // let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
-    let mut classified = vec![None::<usize>; vertex_count];
+    let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
+    let mut classes = vec![None::<usize>; vertex_count];
 
     // collect degrees for all vertices
     let degrees: Vec<usize> = if options.degree_filter {
@@ -64,69 +56,35 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
         vec![]
     };
 
-    // prefetch neighbors for all vertices
-    let neighbors: Vec<Vec<bool>> = if options.prefetch_neighbors {
-        (0..graph.vertex_count())
-            .map(|vertex| graph.neighbors_as_bool_vector(vertex))
-            .collect()
-    } else {
-        vec![]
-    };
-
     let mut nd: usize = 0;
 
     for u in 0..vertex_count {
         // only compare neighborhoods if v is not already in an equivalence class
-        if options.no_unnecessary_type_comparisons && classified[u].is_some() {
+        if options.no_unnecessary_type_comparisons && classes[u].is_some() {
             continue;
         }
 
-        let current_class = classified[u].unwrap_or_else(|| {
-            classified[u] = Some(nd);
+        if classes[u].is_none() {
+            classes[u] = Some(nd);
+            neighborhood_partition.push(vec![u]);
             nd += 1;
-            nd - 1
-        });
+        }
 
         for v in (u + 1)..vertex_count {
-            // only compare neighborhoods if v is not already in an equivalence class
-            if options.no_unnecessary_type_comparisons && classified[v].is_some() {
+            if options.no_unnecessary_type_comparisons && classes[v].is_some()
+                || options.degree_filter && degrees[u] != degrees[v]
+            {
                 continue;
-            }
-
-            // only compare neighborhoods if vertices have same degree
-            if options.degree_filter && degrees[u] != degrees[v] {
-                continue;
-            }
-
-            if options.prefetch_neighbors {
-                {
-                    let mut u_neighbors = neighbors[u].clone();
-                    let mut v_neighbors = neighbors[v].clone();
-
-                    // N(u) \ v
-                    u_neighbors[v] = false;
-                    // N(v) \ u
-                    v_neighbors[u] = false;
-
-                    // equal comparison works because neighbors are bool vector
-                    if u_neighbors == v_neighbors {
-                        classified[v] = Some(current_class);
-                    }
-                }
-            } else if same_type(graph, u, v) {
-                classified[v] = Some(current_class);
             }
 
             if same_type(graph, u, v) {
-                classified[v] = Some(current_class);
+                if classes[v].is_none() {
+                    neighborhood_partition[classes[u].unwrap()].push(v);
+                }
+                classes[v] = Some(classes[u].unwrap());
             }
         }
     }
-
-    let mut neighborhood_partition = vec![vec![]; nd];
-    classified.iter().enumerate().for_each(|(vertex, class)| {
-        neighborhood_partition[class.unwrap()].push(vertex);
-    });
 
     neighborhood_partition
 }
@@ -146,15 +104,6 @@ pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Vec<Vec<usiz
         vec![]
     };
 
-    // prefetch neighbors for all vertices
-    let neighbors: Vec<Vec<bool>> = if options.prefetch_neighbors {
-        (0..graph.vertex_count())
-            .map(|vertex| graph.neighbors_as_bool_vector(vertex))
-            .collect()
-    } else {
-        vec![]
-    };
-
     for u in 0..vertex_count {
         if classified[u] {
             continue;
@@ -162,30 +111,13 @@ pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Vec<Vec<usiz
 
         let mut neighborhood_class = vec![u];
         for v in (u + 1)..vertex_count {
-            // only compare neighborhoods if v is not already in an equivalence class
-            if options.no_unnecessary_type_comparisons && classified[v] {
+            if options.no_unnecessary_type_comparisons && classified[v]
+                || options.degree_filter && degrees[u] != degrees[v]
+            {
                 continue;
             }
 
-            // only compare neighborhoods if vertices have same degree
-            if options.degree_filter && degrees[u] != degrees[v] {
-                continue;
-            }
-
-            if options.prefetch_neighbors {
-                let mut u_neighbors = neighbors[u].clone();
-                let mut v_neighbors = neighbors[v].clone();
-
-                // N(u) \ v
-                u_neighbors[v] = false;
-                // N(v) \ u
-                v_neighbors[u] = false;
-
-                if u_neighbors == v_neighbors {
-                    classified[v] = true;
-                    neighborhood_class.push(v);
-                }
-            } else if same_type(graph, u, v) {
+            if same_type(graph, u, v) {
                 classified[v] = true;
                 neighborhood_class.push(v);
             }
@@ -193,7 +125,6 @@ pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Vec<Vec<usiz
         neighborhood_partition.push(neighborhood_class);
     }
 
-    // type_connectivity_graph.connected_components()
     neighborhood_partition
 }
 
@@ -204,8 +135,8 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut independent_sets: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count() {
-        let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
-        let independent_set_type = clique_type.clone();
+        let independent_set_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
+        let mut clique_type = independent_set_type.clone();
         clique_type[vertex] = true;
 
         if let Some(&vertex_type) = cliques.get(&clique_type) {
@@ -360,20 +291,13 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
+    use rand::{thread_rng, Rng};
+    use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
-    const VERTEX_COUNT: usize = 1e2 as usize;
+    const VERTEX_COUNT: usize = 100;
     const DENSITY: f32 = 0.5;
     const ND_LIMIT: usize = 20;
     const REPRESENTATIONS: &[graph::Representation] = &[AdjacencyMatrix, AdjacencyList];
-
-    fn test_graphs() -> Vec<Graph> {
-        REPRESENTATIONS
-            .iter()
-            .map(|&representation| {
-                Graph::random_graph_nd_limited(VERTEX_COUNT, DENSITY, ND_LIMIT, representation)
-            })
-            .collect()
-    }
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
         let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count(), AdjacencyMatrix);
@@ -391,23 +315,61 @@ mod tests {
         type_connectivity_graph.connected_components()
     }
 
-    fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
-        let mut u_neighbors = graph.neighbors(u);
-        let mut v_neighbors = graph.neighbors(v);
+    fn test_graphs() -> Vec<Graph> {
+        REPRESENTATIONS
+            .iter()
+            .map(|&representation| {
+                (0..10)
+                    .map(|_| {
+                        Graph::random_graph_nd_limited(
+                            VERTEX_COUNT,
+                            DENSITY,
+                            ND_LIMIT,
+                            representation,
+                        )
+                    })
+                    .collect()
+            })
+            .collect::<Vec<Vec<Graph>>>()
+            .concat()
+    }
 
-        // N(u) \ v
-        if let Some(pos) = u_neighbors.iter().position(|&x| x == v) {
-            u_neighbors.remove(pos);
-        }
-        // N(v) \ u
-        if let Some(pos) = v_neighbors.iter().position(|&x| x == u) {
-            v_neighbors.remove(pos);
-        }
+    fn compare_all(graph: &Graph, expected: usize) {
+        // baseline
+        assert_eq!(baseline(graph).len(), expected);
 
-        u_neighbors.sort_unstable();
-        v_neighbors.sort_unstable();
+        // naive
+        assert_eq!(calc_nd_classes(graph, Options::naive()).len(), expected);
 
-        u_neighbors == v_neighbors
+        // degree_filter
+        assert_eq!(
+            calc_nd_classes(graph, Options::new(true, false)).len(),
+            expected
+        );
+
+        // no unnecessary comparisons
+        assert_eq!(
+            calc_nd_classes(graph, Options::new(false, true)).len(),
+            expected
+        );
+
+        // optimized
+        assert_eq!(calc_nd_classes(graph, Options::optimized()).len(), expected);
+
+        // optimized imp
+        assert_eq!(
+            calc_nd_classes_improved(graph, Options::optimized()).len(),
+            expected
+        );
+
+        // btree
+        assert_eq!(calc_nd_btree(graph).len(), expected);
+
+        // btree degree
+        assert_eq!(calc_nd_btree_degree(graph).len(), expected);
+
+        // btree concurrent
+        assert_eq!(calc_nd_btree_concurrent(graph).len(), expected);
     }
 
     #[test]
@@ -441,262 +403,155 @@ mod tests {
     }
 
     #[test]
-    fn naive_on_example_shuffled() {
-        let path = "examples/nd_01_shuffled.txt";
-        let input = std::fs::read_to_string(path)
-            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
+    fn all_algorithms_on_test_graphs() {
+        for graph in &test_graphs() {
+            let expected = baseline(graph).len();
 
-        let graph = input
-            .parse::<Graph>()
-            .unwrap_or_else(|error| panic!("error parsing input: {}", error));
-
-        let neighborhood_diversity = calc_nd_classes(&graph, Options::naive()).len();
-
-        assert_eq!(neighborhood_diversity, 6);
-    }
-
-    #[test]
-    fn baseline_vs_naive() {
-        for graph in test_graphs() {
-            assert_eq!(
-                calc_nd_classes(&graph, Options::naive()).len(),
-                baseline(&graph).len()
-            );
+            compare_all(graph, expected);
         }
     }
 
     #[test]
-    fn baseline_vs_degree_filter() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(
-                calc_nd_classes(&graph, Options::new(true, false, false)).len(),
-                baseline(&graph).len()
-            );
-        }
+    fn all_algorithms_on_test_graphs_shuffled() {
+        test_graphs().par_iter_mut().for_each(|graph| {
+            let expected = baseline(graph).len();
+            graph.shuffle();
+
+            compare_all(graph, expected);
+        });
     }
 
     #[test]
-    fn baseline_vs_no_unnecessary_comparisons() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(
-                calc_nd_classes(&graph, Options::new(false, true, false)).len(),
-                baseline(&graph).len()
-            );
-        }
-    }
+    fn fuzzing() {
+        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
+            (0..100).into_par_iter().for_each(|_| {
+                let mut rng = thread_rng();
+                let vertex_count = rng.gen_range(2..=100);
+                let neighborhood_diversity_limit = rng.gen_range(0..=vertex_count);
+                let probability = rng.gen::<f32>();
 
-    #[test]
-    fn baseline_vs_prefetch_neighbors() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(
-                calc_nd_classes(&graph, Options::new(false, false, true)).len(),
-                baseline(&graph).len()
-            );
-        }
-    }
+                let mut fuzzy_graph = Graph::random_graph_nd_limited(
+                    vertex_count,
+                    probability,
+                    neighborhood_diversity_limit,
+                    representation,
+                );
 
-    #[test]
-    fn baseline_vs_optimized() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(
-                calc_nd_classes(&graph, Options::optimized()).len(),
-                baseline(&graph).len()
-            );
-        }
-    }
+                let expected = baseline(&fuzzy_graph).len();
 
-    #[test]
-    fn baseline_vs_btree() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(calc_nd_btree(&graph).len(), baseline(&graph).len());
-        }
-    }
+                fuzzy_graph.shuffle();
 
-    #[test]
-    fn baseline_vs_btree_degree() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(calc_nd_btree_degree(&graph).len(), baseline(&graph).len());
-        }
-    }
-
-    #[test]
-    fn baseline_vs_btree_concurrent() {
-        // test algorithm with degree filter against naive implementation
-        for graph in test_graphs() {
-            assert_eq!(
-                calc_nd_btree_concurrent(&graph).len(),
-                baseline(&graph).len()
-            );
-        }
+                compare_all(&fuzzy_graph, expected);
+            });
+        });
     }
 
     #[test]
     fn empty_graph() {
-        for &representation in REPRESENTATIONS {
+        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
             let null_graph = Graph::null_graph(0, representation);
             let expected = 0;
 
-            // baseline
-            assert_eq!(baseline(&null_graph).len(), expected);
-
-            // naive
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::naive()).len(),
-                expected
-            );
-
-            // degree_filter
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(true, false, false)).len(),
-                expected
-            );
-
-            // no unnecessary comparisons
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(false, true, false)).len(),
-                expected
-            );
-
-            // optimized
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::optimized()).len(),
-                expected
-            );
-
-            // btree
-            assert_eq!(calc_nd_btree(&null_graph).len(), expected);
-        }
+            compare_all(&null_graph, expected);
+        });
     }
 
     #[test]
     fn null_graph() {
-        for &representation in REPRESENTATIONS {
+        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
             let null_graph = Graph::null_graph(VERTEX_COUNT, representation);
             let expected = 1;
 
-            // baseline
-            assert_eq!(baseline(&null_graph).len(), expected);
-
-            // naive
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::naive()).len(),
-                expected
-            );
-
-            // degree_filter
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(true, false, false)).len(),
-                expected
-            );
-
-            // no unnecessary comparisons
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::new(false, true, false)).len(),
-                expected
-            );
-
-            // optimized
-            assert_eq!(
-                calc_nd_classes(&null_graph, Options::optimized()).len(),
-                expected
-            );
-
-            // btree
-            assert_eq!(calc_nd_btree(&null_graph).len(), expected);
-
-            // btree degree
-            assert_eq!(calc_nd_btree_degree(&null_graph).len(), expected);
-
-            // btree concurrent
-            assert_eq!(calc_nd_btree_concurrent(&null_graph).len(), expected);
-        }
+            compare_all(&null_graph, expected);
+        });
     }
 
     #[test]
     fn complete_graph() {
-        for &representation in REPRESENTATIONS {
+        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
             let complete_graph = Graph::complete_graph(VERTEX_COUNT, representation);
             let expected = 1;
 
-            // baseline
-            assert_eq!(baseline(&complete_graph).len(), expected);
-
-            // naive
-            assert_eq!(
-                calc_nd_classes(&complete_graph, Options::naive()).len(),
-                expected
-            );
-
-            // degree_filter
-            assert_eq!(
-                calc_nd_classes(&complete_graph, Options::new(true, false, false)).len(),
-                expected
-            );
-
-            // no unnecessary comparisons
-            assert_eq!(
-                calc_nd_classes(&complete_graph, Options::new(false, true, false)).len(),
-                expected
-            );
-
-            // optimized
-            assert_eq!(
-                calc_nd_classes(&complete_graph, Options::optimized()).len(),
-                expected
-            );
-
-            // btree
-            assert_eq!(calc_nd_btree(&complete_graph).len(), expected);
-
-            // btree degree
-            assert_eq!(calc_nd_btree_degree(&complete_graph).len(), expected);
-
-            // btree concurrent
-            assert_eq!(calc_nd_btree_concurrent(&complete_graph).len(), expected);
-        }
+            compare_all(&complete_graph, expected);
+        });
     }
 
     #[test]
-    fn shuffled() {
+    fn no_duplicates() {
+        let all_unique = |partition: &Vec<Vec<usize>>, vertex_count: usize| {
+            let mut counter = std::collections::HashMap::new();
+
+            for class in partition {
+                for &vertex in class {
+                    *counter.entry(vertex).or_insert(0) += 1;
+                }
+            }
+
+            dbg!(
+                &vertex_count,
+                &counter.len(),
+                counter.keys().min(),
+                counter.keys().max(),
+                &counter,
+                &partition
+            );
+
+            counter.len() == vertex_count
+                && counter.keys().min() == Some(&0)
+                && counter.keys().max() == Some(&(vertex_count - 1))
+                && counter.values().all(|&count| count == 1)
+        };
+
         for graph in &mut test_graphs() {
-            let expected = baseline(graph).len();
             graph.shuffle();
 
             // baseline
-            assert_eq!(baseline(graph).len(), expected);
+            assert!(all_unique(&baseline(graph), graph.vertex_count()));
 
             // naive
-            assert_eq!(calc_nd_classes(graph, Options::naive()).len(), expected);
+            assert!(all_unique(
+                &calc_nd_classes(graph, Options::naive()),
+                graph.vertex_count()
+            ));
 
-            // degree_filter
-            assert_eq!(
-                calc_nd_classes(graph, Options::new(true, false, false)).len(),
-                expected
-            );
+            // degree filter
+            assert!(all_unique(
+                &calc_nd_classes(graph, Options::new(true, false)),
+                graph.vertex_count()
+            ));
 
             // no unnecessary comparisons
-            assert_eq!(
-                calc_nd_classes(graph, Options::new(false, true, false)).len(),
-                expected
-            );
+            assert!(all_unique(
+                &calc_nd_classes(graph, Options::new(false, true)),
+                graph.vertex_count()
+            ));
 
             // optimized
-            assert_eq!(calc_nd_classes(graph, Options::optimized()).len(), expected);
+            assert!(all_unique(
+                &calc_nd_classes(graph, Options::optimized()),
+                graph.vertex_count()
+            ));
+
+            // optimized imp
+            assert!(all_unique(
+                &calc_nd_classes_improved(graph, Options::optimized()),
+                graph.vertex_count()
+            ));
 
             // btree
-            assert_eq!(calc_nd_btree(graph).len(), expected);
+            assert!(all_unique(&calc_nd_btree(graph), graph.vertex_count()));
 
             // btree degree
-            assert_eq!(calc_nd_btree_degree(graph).len(), expected);
+            assert!(all_unique(
+                &calc_nd_btree_degree(graph),
+                graph.vertex_count()
+            ));
 
             // btree concurrent
-            assert_eq!(calc_nd_btree_concurrent(graph).len(), expected);
+            assert!(all_unique(
+                &calc_nd_btree_concurrent(graph),
+                graph.vertex_count()
+            ));
         }
     }
 }
