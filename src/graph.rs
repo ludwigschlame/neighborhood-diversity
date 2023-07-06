@@ -92,6 +92,21 @@ impl Graph {
         }
     }
 
+    #[must_use]
+    pub fn worst_case_graph(vertex_count: usize, representation: Representation) -> Self {
+        let mut graph = Self::complete_graph(vertex_count, representation);
+
+        for vertex in 0..vertex_count {
+            graph
+                .remove_edge(vertex, (vertex + 1) % vertex_count)
+                .unwrap();
+        }
+
+        graph.shuffle();
+
+        graph
+    }
+
     // converts graph to the specified representation
     // does nothing if graph is already in the correct representation
     pub fn convert_representation(&mut self, representation: Representation) {
@@ -450,6 +465,7 @@ impl Graph {
 
     // returns actual density of given graph (number of edges / possible edges)
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn density(&self) -> f32 {
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
@@ -542,6 +558,7 @@ impl Graph {
 
     // saves an html document showing the graph in visual form
     // optional: vertices can be colored by group if a coloring vector is provided
+    #[allow(clippy::cast_precision_loss)]
     pub fn visualize(&self, path: &str, coloring: Option<&Vec<Vec<usize>>>) {
         const SATURATION: f32 = 80.0;
         const LUMINANCE: f32 = 80.0;
