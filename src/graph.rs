@@ -824,4 +824,27 @@ mod tests {
 
         assert_eq!(graph_parsed, graph_truth);
     }
+
+    #[test]
+    fn worst_case_graph() {
+        let vertex_count = 100;
+        let graph = Graph::worst_case_graph(vertex_count, Representation::AdjacencyMatrix);
+
+        assert_eq!(graph.calc_nd_classes(Options::naive()).len(), vertex_count);
+    }
+
+    #[test]
+    fn random_graph_nd_limited() {
+        let vertex_count = 100;
+        let neighborhood_diversity_limit = 10;
+        let probability = 0.5;
+        let graph = Graph::random_graph_nd_limited(
+            vertex_count,
+            probability,
+            neighborhood_diversity_limit,
+            Representation::AdjacencyMatrix,
+        );
+
+        assert!(graph.calc_nd_classes(Options::naive()).len() <= neighborhood_diversity_limit);
+    }
 }
