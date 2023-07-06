@@ -1,6 +1,4 @@
-use rand::{distributions::Uniform, prelude::*};
-
-use crate::{calc_nd_classes, graph::Graph, CoTree, Options};
+use crate::{graph::Graph, CoTree};
 
 #[derive(Debug, Clone)]
 pub enum MDTree {
@@ -21,10 +19,13 @@ pub enum NodeType {
     Parallel,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ClassType {
-    Clique,
-    IndependentSet,
+impl PartialEq for NodeType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Prime(_), Self::Prime(_)) => true,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl MDTree {
@@ -151,7 +152,7 @@ impl MDTree {
     fn _neighborhood_partition(
         &self,
         neighborhood_partition: &mut Vec<Vec<usize>>,
-    ) -> (Option<ClassType>, Vec<usize>) {
+    ) -> (Option<NodeType>, Vec<usize>) {
         match self {
             Self::Empty => (None, vec![]),
             Self::Leaf(id) => (None, vec![*id]),
@@ -161,81 +162,17 @@ impl MDTree {
                 let mut results = children
                     .iter()
                     .map(|child| child._neighborhood_partition(neighborhood_partition))
-                    .collect::<Vec<(Option<ClassType>, Vec<usize>)>>();
+                    .collect::<Vec<(Option<NodeType>, Vec<usize>)>>();
 
-                match node_type {
-                    NodeType::Prime(graph) => {
-                        let classes = calc_nd_classes(graph, Options::optimized());
-                        let mut class_type = None;
-
-                        for class in classes {
-                            let mut new_class: Vec<usize> = vec![];
-                            let is_clique =
-                                graph.is_edge(*class.first().unwrap(), *class.last().unwrap());
-                            if is_clique {
-                                // CL
-                                for &idx in &class {
-                                    if results[idx].0 == Some(ClassType::Clique)
-                                        || results[idx].0.is_none()
-                                    {
-                                        new_class.append(&mut results[idx].1);
-                                    } else if !results[idx].1.is_empty() {
-                                        neighborhood_partition.push(results[idx].1.clone());
-                                    }
-                                }
-                            } else {
-                                // IS
-                                for &idx in &class {
-                                    if results[idx].0 == Some(ClassType::IndependentSet)
-                                        || results[idx].0.is_none()
-                                    {
-                                        new_class.append(&mut results[idx].1);
-                                    } else if !results[idx].1.is_empty() {
-                                        neighborhood_partition.push(results[idx].1.clone());
-                                    }
-                                }
-                            }
-
-                            if new_class.is_empty() {
-                                continue;
-                            }
-
-                            if graph.degree(class[0]) == 0 {
-                                neighborhood_class = new_class;
-                                class_type = Some(ClassType::IndependentSet);
-                            } else if graph.degree(class[0]) == graph.vertex_count() {
-                                neighborhood_class = new_class;
-                                class_type = Some(ClassType::Clique);
-                            } else {
-                                neighborhood_partition.push(new_class);
-                            }
-                        }
-
-                        (class_type, neighborhood_class)
-                    }
-                    NodeType::Series => {
-                        for result in &mut results {
-                            if result.0 == Some(ClassType::Clique) || result.0.is_none() {
-                                neighborhood_class.append(&mut result.1);
-                            } else if !result.1.is_empty() {
-                                neighborhood_partition.push(result.1.clone());
-                            }
-                        }
-
-                        (Some(ClassType::Clique), neighborhood_class)
-                    }
-                    NodeType::Parallel => {
-                        for result in &mut results {
-                            if result.0 == Some(ClassType::IndependentSet) || result.0.is_none() {
-                                neighborhood_class.append(&mut result.1);
-                            } else if !result.1.is_empty() {
-                                neighborhood_partition.push(result.1.clone());
-                            }
-                        }
-
-                        (Some(ClassType::IndependentSet), neighborhood_class)
+                for result in &mut results {
+                    if result.0.is_none() && !matches!(node_type, NodeType::Prime(_)) {
+                        neighborhood_class.append(&mut result.1);
+                    } else if !result.1.is_empty() {
+                        neighborhood_partition.push(result.1.clone());
                     }
                 }
+
+                (Some(node_type.clone()), neighborhood_class)
             }
         }
     }
