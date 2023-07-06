@@ -300,6 +300,19 @@ mod tests {
     const REPRESENTATIONS: &[graph::Representation] = &[AdjacencyMatrix, AdjacencyList];
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
+        let same_type = |graph: &Graph, u: usize, v: usize| -> bool {
+            let mut u_neighbors = graph.neighbors_as_bool_vector(u);
+            let mut v_neighbors = graph.neighbors_as_bool_vector(v);
+
+            // N(u) \ v
+            u_neighbors[v] = false;
+            // N(v) \ u
+            v_neighbors[u] = false;
+
+            // equal comparison works because neighbors are bool vector
+            u_neighbors == v_neighbors
+        };
+
         let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count(), AdjacencyMatrix);
 
         for u in 0..graph.vertex_count() {
