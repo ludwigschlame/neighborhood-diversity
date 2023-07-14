@@ -567,4 +567,17 @@ mod tests {
             ));
         }
     }
+
+    #[test]
+    fn convert_representation() {
+        for graph in &mut test_graphs() {
+            let expected = baseline(graph).len();
+            match graph.representation() {
+                AdjacencyMatrix => graph.convert_representation(AdjacencyList),
+                AdjacencyList => graph.convert_representation(AdjacencyMatrix),
+            }
+
+            assert_eq!(baseline(graph).len(), expected);
+        }
+    }
 }

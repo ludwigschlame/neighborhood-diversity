@@ -1,4 +1,5 @@
 use crate::{CoTree, MDTree, Options};
+
 use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
@@ -110,29 +111,34 @@ impl Graph {
     // converts graph to the specified representation
     // does nothing if graph is already in the correct representation
     pub fn convert_representation(&mut self, representation: Representation) {
-        match (self.representation(), representation) {
-            (r, s) if r == s => { /* no changes necessary */ }
-            (Representation::AdjacencyMatrix, Representation::AdjacencyList) => {
+        if self.representation() == representation {
+            return; // no conversion necessary
+        }
+
+        match representation {
+            Representation::AdjacencyList => {
                 let adjacency_list = (0..self.vertex_count())
+                    .into_par_iter()
                     .map(|vertex| self.neighbors(vertex))
                     .collect::<Vec<Vec<usize>>>();
 
                 self.representation = InternalRepresentation::AdjacencyList(adjacency_list);
             }
-            (Representation::AdjacencyList, Representation::AdjacencyMatrix) => {
-                let mut adjacency_matrix =
-                    vec![vec![false; self.vertex_count()]; self.vertex_count()];
+            Representation::AdjacencyMatrix => {
+                let vertex_count = self.vertex_count();
+                let mut adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
 
-                (0..self.vertex_count()).for_each(|u| {
-                    self.neighbors(u).iter().for_each(|&v| {
-                        adjacency_matrix[u][v] = true;
-                        adjacency_matrix[v][u] = true;
+                adjacency_matrix
+                    .par_iter_mut()
+                    .enumerate()
+                    .for_each(|(vertex, neighborhood)| {
+                        self.neighbors(vertex).iter().for_each(|&v| {
+                            neighborhood[v] = true;
+                        })
                     });
-                });
 
                 self.representation = InternalRepresentation::AdjacencyMatrix(adjacency_matrix);
             }
-            _ => panic!("should be unreachable"),
         }
     }
 
