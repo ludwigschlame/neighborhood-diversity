@@ -9,7 +9,7 @@ readme = "README.md"
 
 [dependencies]
 rand = "0.8"
-rayon = "1.7.0"
+rayon = "1.7"
 network_vis = "0.1"
 colors-transform = "0.2"
 

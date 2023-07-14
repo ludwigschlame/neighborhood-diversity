@@ -43,6 +43,20 @@ impl Options {
 }
 
 #[must_use]
+fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
+    let mut u_neighbors = graph.neighbors_as_bool_vector(u);
+    let mut v_neighbors = graph.neighbors_as_bool_vector(v);
+
+    // N(u) \ v
+    u_neighbors[v] = false;
+    // N(v) \ u
+    v_neighbors[u] = false;
+
+    // equal comparison works because neighbors are bool vector
+    u_neighbors == v_neighbors
+}
+
+#[must_use]
 pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
     let vertex_count = graph.vertex_count();
     let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
@@ -275,20 +289,6 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Ve
     collection.neighborhood_partition
 }
 
-#[must_use]
-fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
-    let mut u_neighbors = graph.neighbors_as_bool_vector(u);
-    let mut v_neighbors = graph.neighbors_as_bool_vector(v);
-
-    // N(u) \ v
-    u_neighbors[v] = false;
-    // N(v) \ u
-    v_neighbors[u] = false;
-
-    // equal comparison works because neighbors are bool vector
-    u_neighbors == v_neighbors
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,7 +319,7 @@ mod tests {
         let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count(), AdjacencyMatrix);
 
         for u in 0..graph.vertex_count() {
-            for v in u..graph.vertex_count() {
+            for v in (u + 1)..graph.vertex_count() {
                 if same_type(graph, u, v) {
                     type_connectivity_graph
                         .insert_edge(u, v)
