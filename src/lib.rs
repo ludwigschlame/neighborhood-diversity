@@ -7,6 +7,7 @@ pub use graph::{Graph, Representation::*};
 pub use md_tree::*;
 
 use std::collections::BTreeMap;
+use std::num::NonZeroUsize;
 use std::thread;
 
 #[derive(Debug, Clone, Copy)]
@@ -187,7 +188,7 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
 }
 
 #[must_use]
-pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
+pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Vec<Vec<usize>> {
     #[derive(Debug, Default, Clone)]
     struct Data {
         neighborhood_partition: Vec<Vec<usize>>,
@@ -195,10 +196,11 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
         independent_sets: BTreeMap<Vec<bool>, usize>,
     }
 
-    const MAGIC_NUMBER: usize = 100;
-    let thread_count = (graph.vertex_count() / MAGIC_NUMBER + 1)
-        .min(thread::available_parallelism().map_or(8, std::convert::Into::into));
-    let mut thread_data: Vec<Data> = vec![Data::default(); thread_count];
+    let thread_count = match thread::available_parallelism() {
+        Ok(available_parallelism) => thread_count.min(available_parallelism),
+        Err(_) => thread_count,
+    };
+    let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
 
     thread::scope(|scope| {
         for (thread_id, data) in thread_data.iter_mut().enumerate() {
@@ -230,7 +232,7 @@ pub fn calc_nd_btree_concurrent(graph: &Graph) -> Vec<Vec<usize>> {
     });
 
     // collect into last element
-    let mut collection = thread_data.pop().unwrap();
+    let mut collection = thread_data.pop().expect("len is non-zero");
 
     for data in &thread_data {
         let cliques_inverted: BTreeMap<usize, Vec<bool>> =
@@ -298,6 +300,7 @@ mod tests {
     const DENSITY: f32 = 0.5;
     const ND_LIMIT: usize = 20;
     const REPRESENTATIONS: &[graph::Representation] = &[AdjacencyMatrix, AdjacencyList];
+    const THREAD_COUNT: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(3) }; // 7 is non-zero
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
         let same_type = |graph: &Graph, u: usize, v: usize| -> bool {
@@ -382,7 +385,10 @@ mod tests {
         assert_eq!(calc_nd_btree_degree(graph).len(), expected);
 
         // btree concurrent
-        assert_eq!(calc_nd_btree_concurrent(graph).len(), expected);
+        assert_eq!(
+            calc_nd_btree_concurrent(graph, THREAD_COUNT).len(),
+            expected
+        );
     }
 
     #[test]
@@ -562,7 +568,7 @@ mod tests {
 
             // btree concurrent
             assert!(all_unique(
-                &calc_nd_btree_concurrent(graph),
+                &calc_nd_btree_concurrent(graph, THREAD_COUNT),
                 graph.vertex_count()
             ));
         }
