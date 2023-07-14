@@ -44,8 +44,8 @@ impl Options {
 
 #[must_use]
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
-    let mut u_neighbors = graph.neighbors_as_bool_vector(u);
-    let mut v_neighbors = graph.neighbors_as_bool_vector(v);
+    let mut u_neighbors = graph.neighbors_as_bool_vector(u).to_vec();
+    let mut v_neighbors = graph.neighbors_as_bool_vector(v).to_vec();
 
     // N(u) \ v
     u_neighbors[v] = false;
@@ -150,19 +150,19 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut independent_sets: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count() {
-        let independent_set_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
-        let mut clique_type = independent_set_type.clone();
+        let independent_set_type: &Vec<bool> = &graph.neighbors_as_bool_vector(vertex);
+        let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
         clique_type[vertex] = true;
 
-        if let Some(&vertex_type) = cliques.get(&clique_type) {
+        if let Some(&vertex_type) = cliques.get(clique_type) {
             neighborhood_partition[vertex_type].push(vertex);
-        } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type) {
+        } else if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
             neighborhood_partition[vertex_type].push(vertex);
         } else {
             let vertex_type = neighborhood_partition.len();
             neighborhood_partition.push(vec![vertex]);
-            cliques.insert(clique_type, vertex_type);
-            independent_sets.insert(independent_set_type, vertex_type);
+            cliques.insert(clique_type.clone(), vertex_type);
+            independent_sets.insert(independent_set_type.clone(), vertex_type);
         }
     }
 
@@ -176,25 +176,24 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
     let mut independent_sets: Vec<BTreeMap<Vec<bool>, usize>> =
         vec![BTreeMap::new(); graph.vertex_count()];
     for vertex in 0..graph.vertex_count() {
-        let neighbors = graph.neighbors(vertex);
-        let degree = neighbors.len();
+        let degree = graph.degree(vertex);
 
-        let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
-        let independent_set_type = clique_type.clone();
+        let independent_set_type: &Vec<bool> = &graph.neighbors_as_bool_vector(vertex);
+        let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
         clique_type[vertex] = true;
 
         let cliques = cliques.get_mut(degree).unwrap();
         let independent_sets = independent_sets.get_mut(degree).unwrap();
 
-        if let Some(&vertex_type) = cliques.get(&clique_type) {
+        if let Some(&vertex_type) = cliques.get(clique_type) {
             neighborhood_partition[vertex_type].push(vertex);
-        } else if let Some(&vertex_type) = independent_sets.get(&independent_set_type) {
+        } else if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
             neighborhood_partition[vertex_type].push(vertex);
         } else {
             let vertex_type = neighborhood_partition.len();
             neighborhood_partition.push(vec![vertex]);
-            cliques.insert(clique_type, vertex_type);
-            independent_sets.insert(independent_set_type, vertex_type);
+            cliques.insert(clique_type.clone(), vertex_type);
+            independent_sets.insert(independent_set_type.clone(), vertex_type);
         }
     }
 
@@ -223,8 +222,8 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Ve
                 let end = (thread_id + 1) * graph.vertex_count() / thread_count;
 
                 for vertex in start..end {
-                    let mut clique_type: Vec<bool> = graph.neighbors_as_bool_vector(vertex);
-                    let independent_set_type = clique_type.clone();
+                    let independent_set_type: &Vec<bool> = &graph.neighbors_as_bool_vector(vertex);
+                    let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
                     clique_type[vertex] = true;
 
                     if let Some(&vertex_type) = data.cliques.get(&clique_type.clone()) {
@@ -304,8 +303,8 @@ mod tests {
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
         let same_type = |graph: &Graph, u: usize, v: usize| -> bool {
-            let mut u_neighbors = graph.neighbors_as_bool_vector(u);
-            let mut v_neighbors = graph.neighbors_as_bool_vector(v);
+            let mut u_neighbors = graph.neighbors_as_bool_vector(u).to_vec();
+            let mut v_neighbors = graph.neighbors_as_bool_vector(v).to_vec();
 
             // N(u) \ v
             u_neighbors[v] = false;

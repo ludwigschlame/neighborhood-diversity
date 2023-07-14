@@ -4,7 +4,10 @@ use colors_transform::{Color, Hsl};
 use network_vis::{network::Network, node_options::NodeOptions};
 use rand::{distributions::Uniform, prelude::*};
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Representation {
@@ -119,7 +122,7 @@ impl Graph {
             Representation::AdjacencyList => {
                 let adjacency_list = (0..self.vertex_count())
                     .into_par_iter()
-                    .map(|vertex| self.neighbors(vertex))
+                    .map(|vertex| self.neighbors(vertex).to_vec())
                     .collect::<Vec<Vec<usize>>>();
 
                 self.representation = InternalRepresentation::AdjacencyList(adjacency_list);
@@ -160,6 +163,7 @@ impl Graph {
                 }
             }
         }
+
         random_graph
     }
 
@@ -400,12 +404,16 @@ impl Graph {
     // returns neighbors of given vertex
     // a vertex is not it's own neighbor except for self-loops
     #[must_use]
-    pub fn neighbors(&self, vertex: usize) -> Vec<usize> {
+    pub fn neighbors(&self, vertex: usize) -> Cow<Vec<usize>> {
         match &self.representation {
-            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => (0..self.vertex_count)
-                .filter(|neighbor| adjacency_matrix[vertex][*neighbor])
-                .collect(),
-            InternalRepresentation::AdjacencyList(adjacency_list) => adjacency_list[vertex].clone(),
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => Cow::Owned(
+                (0..self.vertex_count)
+                    .filter(|neighbor| adjacency_matrix[vertex][*neighbor])
+                    .collect(),
+            ),
+            InternalRepresentation::AdjacencyList(adjacency_list) => {
+                Cow::Borrowed(&adjacency_list[vertex])
+            }
         }
     }
 
@@ -413,12 +421,12 @@ impl Graph {
     // takes time O(|V|)
     #[must_use]
     pub fn neighbors_sorted(&self, vertex: usize) -> Vec<usize> {
-        let mut neighbors = Vec::new();
+        let mut neighbors: Vec<bool>;
 
         let neighbors = match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => &adjacency_matrix[vertex],
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                neighbors.resize(self.vertex_count, false);
+                neighbors = vec![false; self.vertex_count()];
                 adjacency_list[vertex]
                     .iter()
                     .for_each(|&neighbor| neighbors[neighbor] = true);
@@ -434,17 +442,17 @@ impl Graph {
     // returns neighbors of given vertex as a bool vector
     // takes time O(1) for AdjacencyMatrix and O(|V|) for AdjacencyList
     #[must_use]
-    pub fn neighbors_as_bool_vector(&self, vertex: usize) -> Vec<bool> {
+    pub fn neighbors_as_bool_vector(&self, vertex: usize) -> Cow<Vec<bool>> {
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
-                adjacency_matrix[vertex].clone()
+                Cow::Borrowed(&adjacency_matrix[vertex])
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
                 let mut neighbors = vec![false; self.vertex_count];
                 adjacency_list[vertex]
                     .iter()
                     .for_each(|&neighbor| neighbors[neighbor] = true);
-                neighbors
+                Cow::Owned(neighbors)
             }
         }
     }
@@ -527,7 +535,7 @@ impl Graph {
         while let Some(vertex) = stack.pop() {
             connected_component.push(vertex);
 
-            for neighbor in self.neighbors(vertex) {
+            for neighbor in self.neighbors(vertex).iter().copied() {
                 if !visited[neighbor] {
                     // marks visited immediately so vertex isn't pushed onto stack multiple times
                     visited[neighbor] = true;
@@ -565,7 +573,7 @@ impl Graph {
     // saves an html document showing the graph in visual form
     // optional: vertices can be colored by group if a coloring vector is provided
     #[allow(clippy::cast_precision_loss)]
-    pub fn visualize(&self, path: &str, coloring: Option<&Vec<Vec<usize>>>) {
+    pub fn visualize(&self, path: &str, coloring: Option<&[Vec<usize>]>) {
         const SATURATION: f32 = 80.0;
         const LUMINANCE: f32 = 80.0;
         const DEFAULT_HUE: f32 = 180.0; // Teal
