@@ -326,7 +326,8 @@ mod tests {
         for u in 0..vertex_count {
             if classes[u].is_none() {
                 classes[u] = Some(nd);
-                partition.push(vec![u]);
+                partition.resize((nd + 1).max(partition.len()), vec![]);
+                partition[nd].push(u);
                 nd += 1;
             }
             for v in (u + 1)..vertex_count {
@@ -343,10 +344,12 @@ mod tests {
     }
 
     fn test_graphs() -> Vec<Graph> {
+        const GRAPHS_PER_REPRESENTATION: usize = 10;
+
         REPRESENTATIONS
             .iter()
             .map(|&representation| {
-                (0..10)
+                (0..GRAPHS_PER_REPRESENTATION)
                     .map(|_| {
                         Graph::random_graph_nd_limited(
                             VERTEX_COUNT,
@@ -355,7 +358,7 @@ mod tests {
                             representation,
                         )
                     })
-                    .collect()
+                    .collect::<Vec<Graph>>()
             })
             .collect::<Vec<Vec<Graph>>>()
             .concat()
@@ -403,22 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn baseline_on_example() {
-        let path = "examples/nd_01.txt";
-        let input = std::fs::read_to_string(path)
-            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
-
-        let graph = input
-            .parse::<Graph>()
-            .unwrap_or_else(|error| panic!("error parsing input: {}", error));
-
-        let neighborhood_diversity = baseline(&graph).len();
-
-        assert_eq!(neighborhood_diversity, 6);
-    }
-
-    #[test]
-    fn baseline_on_example_shuffled() {
+    fn all_algorithms_on_example() {
         let path = "examples/nd_01_shuffled.txt";
         let input = std::fs::read_to_string(path)
             .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
@@ -427,9 +415,22 @@ mod tests {
             .parse::<Graph>()
             .unwrap_or_else(|error| panic!("error parsing input: {}", error));
 
-        let neighborhood_diversity = baseline(&graph).len();
+        compare_all(&graph, 6);
+    }
 
-        assert_eq!(neighborhood_diversity, 6);
+    #[test]
+    fn all_algorithms_on_example_shuffled() {
+        let path = "examples/nd_01_shuffled.txt";
+        let input = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
+
+        let mut graph = input
+            .parse::<Graph>()
+            .unwrap_or_else(|error| panic!("error parsing input: {}", error));
+
+        graph.shuffle();
+
+        compare_all(&graph, 6);
     }
 
     #[test]
