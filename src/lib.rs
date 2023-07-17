@@ -302,9 +302,10 @@ mod tests {
     const THREAD_COUNT: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(3) }; // 7 is non-zero
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
-        let same_type = |graph: &Graph, u: usize, v: usize| -> bool {
-            let mut u_neighbors = graph.neighbors_as_bool_vector(u).to_vec();
-            let mut v_neighbors = graph.neighbors_as_bool_vector(v).to_vec();
+        // closure replacing the same_type() function
+        let same_type = |u: usize, v: usize| -> bool {
+            let mut u_neighbors: Vec<bool> = graph.neighbors_as_bool_vector(u).to_vec();
+            let mut v_neighbors: Vec<bool> = graph.neighbors_as_bool_vector(v).to_vec();
 
             // N(u) \ v
             u_neighbors[v] = false;
@@ -315,19 +316,28 @@ mod tests {
             u_neighbors == v_neighbors
         };
 
-        let mut type_connectivity_graph = Graph::null_graph(graph.vertex_count(), AdjacencyMatrix);
+        let vertex_count: usize = graph.vertex_count();
+        let mut partition: Vec<Vec<usize>> = Vec::new();
+        let mut classes: Vec<Option<usize>> = vec![None; vertex_count];
+        let mut nd: usize = 0;
 
-        for u in 0..graph.vertex_count() {
-            for v in (u + 1)..graph.vertex_count() {
-                if same_type(graph, u, v) {
-                    type_connectivity_graph
-                        .insert_edge(u, v)
-                        .expect("u and v are elements of range 0..vertex_count");
+        for u in 0..vertex_count {
+            if classes[u].is_none() {
+                classes[u] = Some(nd);
+                partition.push(vec![u]);
+                nd += 1;
+            }
+            for v in (u + 1)..vertex_count {
+                if same_type(u, v) {
+                    classes[v] = classes[u];
+                    if !partition[classes[u].unwrap()].contains(&v) {
+                        partition[classes[u].unwrap()].push(v);
+                    }
                 }
             }
         }
 
-        type_connectivity_graph.connected_components()
+        partition
     }
 
     fn test_graphs() -> Vec<Graph> {
