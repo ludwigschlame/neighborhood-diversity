@@ -199,7 +199,8 @@ impl Graph {
         for u in 0..vertex_count {
             for v in (u + 1)..vertex_count {
                 if rng.gen_bool(probability.clamp(0.0, 1.0).into()) {
-                    random_graph.insert_edge_unchecked(u, v);
+                    // SAFETY: each pair of vertices is only visited once.
+                    unsafe { random_graph.insert_edge_unchecked(u, v) };
                 }
             }
         }
@@ -269,7 +270,8 @@ impl Graph {
             if rng.gen_bool(probability.into()) {
                 for u in set_start[u_gen]..set_end_u {
                     for v in (u + 1)..set_end_u {
-                        random_graph.insert_edge_unchecked(u, v);
+                        // SAFETY: each pair of vertices is only visited once.
+                        unsafe { random_graph.insert_edge_unchecked(u, v) };
                     }
                 }
             }
@@ -287,7 +289,8 @@ impl Graph {
                 };
                 for u in set_start[u_gen]..set_end_u {
                     for v in set_start[v_gen]..set_end_v {
-                        random_graph.insert_edge_unchecked(u, v);
+                        // SAFETY: each pair of vertices is only visited once.
+                        unsafe { random_graph.insert_edge_unchecked(u, v) };
                     }
                 }
             }
@@ -381,8 +384,10 @@ impl Graph {
         }
     }
 
+    /// # Safety
+    /// Ensure that the indices are in bounds and that the edge is not yet present.
     // inserts edge (u, v) into the graph without doing any sanity-checks
-    fn insert_edge_unchecked(&mut self, u: usize, v: usize) {
+    pub unsafe fn insert_edge_unchecked(&mut self, u: usize, v: usize) {
         match &mut self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 adjacency_matrix[u][v] = true;
@@ -763,7 +768,8 @@ impl From<crate::CoTree> for Graph {
                     if operation == crate::Operation::DisjointSum {
                         for u in left_child.leaves() {
                             for v in right_child.leaves() {
-                                co_graph.insert_edge_unchecked(u, v);
+                                // SAFETY: if leaves are distinct, no vertex pair is visited twice.
+                                unsafe { co_graph.insert_edge_unchecked(u, v) };
                             }
                         }
                     }
@@ -798,7 +804,8 @@ impl From<crate::MDTree> for Graph {
                                 {
                                     for u in children[u_gen].leaves() {
                                         for v in children[v_gen].leaves() {
-                                            graph.insert_edge_unchecked(u, v);
+                                            // SAFETY: if leaves are distinct, no vertex pair is visited twice.
+                                            unsafe { graph.insert_edge_unchecked(u, v) };
                                         }
                                     }
                                 }
@@ -809,7 +816,8 @@ impl From<crate::MDTree> for Graph {
                                 for child_2 in (child_1 + 1)..children.len() {
                                     for u in children[child_1].leaves() {
                                         for v in children[child_2].leaves() {
-                                            graph.insert_edge_unchecked(u, v);
+                                            // SAFETY: if leaves are distinct, no vertex pair is visited twice.
+                                            unsafe { graph.insert_edge_unchecked(u, v) };
                                         }
                                     }
                                 }
