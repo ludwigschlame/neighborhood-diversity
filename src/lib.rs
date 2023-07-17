@@ -98,7 +98,7 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
                 if classes[v].is_none() {
                     neighborhood_partition[classes[u].unwrap()].push(v);
                 }
-                classes[v] = Some(classes[u].unwrap());
+                classes[v] = classes[u];
             }
         }
     }
