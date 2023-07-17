@@ -41,6 +41,44 @@ pub struct Graph {
 }
 
 impl Graph {
+    pub fn from_adjacency_matrix(adjacency_matrix: Vec<Vec<bool>>) -> Result<Self, Box<dyn Error>> {
+        let vertex_count = adjacency_matrix.len();
+
+        // ensure adjacency matrix is square
+        if !adjacency_matrix.iter().all(|row| row.len() == vertex_count) {
+            return Err("adjacency matrix not square".into());
+        }
+
+        // ensure there are no self-loops by checking diagonal
+        if !(0..vertex_count).all(|vertex| !adjacency_matrix[vertex][vertex]) {
+            return Err("only loop-free graphs are allowed".into());
+        }
+
+        // ensure adjacency matrix is symmetrical
+        for u in 0..vertex_count {
+            for v in (u + 1)..vertex_count {
+                if adjacency_matrix[u][v] != adjacency_matrix[v][u] {
+                    return Err("adjacency matrix not symmetrical".into());
+                }
+            }
+        }
+
+        Ok(Self {
+            vertex_count,
+            representation: InternalRepresentation::AdjacencyMatrix(adjacency_matrix),
+        })
+    }
+
+    /// # Safety
+    /// Ensure that the adjacency matrix is square, symmetrical and contains no true values on its diagonal
+    #[must_use]
+    pub unsafe fn from_adjacency_matrix_unchecked(adjacency_matrix: Vec<Vec<bool>>) -> Self {
+        Self {
+            vertex_count: adjacency_matrix.len(),
+            representation: InternalRepresentation::AdjacencyMatrix(adjacency_matrix),
+        }
+    }
+
     // constructs a graph with no edges
     #[must_use]
     pub fn null_graph(vertex_count: usize, representation: Representation) -> Self {
