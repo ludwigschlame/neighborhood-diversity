@@ -1,3 +1,11 @@
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::use_debug)]
+#![warn(clippy::nursery)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::uninlined_format_args)] // inlined format args don's support batch renaming (yet?)
+#![allow(clippy::missing_panics_doc)] // missing docs in general (todo!)
+#![allow(clippy::missing_errors_doc)] // missing docs in general (todo!)
+
 mod co_tree;
 mod graph;
 mod md_tree;
@@ -211,10 +219,10 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Ve
         independent_sets: BTreeMap<Vec<bool>, usize>,
     }
 
-    let thread_count = match thread::available_parallelism() {
-        Ok(available_parallelism) => thread_count.min(available_parallelism),
-        Err(_) => thread_count,
-    };
+    let thread_count = thread::available_parallelism()
+        .map_or(thread_count, |available_parallelism| {
+            thread_count.min(available_parallelism)
+        });
     let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
 
     thread::scope(|scope| {
@@ -301,7 +309,10 @@ mod tests {
     const DENSITY: f32 = 0.5;
     const ND_LIMIT: usize = 20;
     const REPRESENTATIONS: &[graph::Representation] = &[AdjacencyMatrix, AdjacencyList];
-    const THREAD_COUNT: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(3) }; // 7 is non-zero
+    const THREAD_COUNT: NonZeroUsize = {
+        // SAFETY: 3 is non-zero.
+        unsafe { NonZeroUsize::new_unchecked(3) }
+    };
 
     fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
         // closure replacing the same_type() function
