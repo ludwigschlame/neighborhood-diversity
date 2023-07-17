@@ -44,16 +44,18 @@ impl Options {
 
 #[must_use]
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
-    let mut u_neighbors = graph.neighbors_as_bool_vector(u).to_vec();
-    let mut v_neighbors = graph.neighbors_as_bool_vector(v).to_vec();
+    let u_neighbors = graph.neighbors_as_bool_vector(u);
+    let v_neighbors = graph.neighbors_as_bool_vector(v);
 
-    // N(u) \ v
-    u_neighbors[v] = false;
-    // N(v) \ u
-    v_neighbors[u] = false;
+    let small = u.min(v);
+    let large = u.max(v);
 
-    // equal comparison works because neighbors are bool vector
-    u_neighbors == v_neighbors
+    // compare neighborhoods excluding u and v
+    // u_neighbors[u] (v_neighbors[v]) always false because no self-loops
+    // u_neighbors[v] (v_neighbors[u]) always false because N(u)\{v} (N(v)\{u})
+    u_neighbors[..small] == v_neighbors[..small]
+        && u_neighbors[small + 1..large] == v_neighbors[small + 1..large]
+        && u_neighbors[large + 1..] == v_neighbors[large + 1..]
 }
 
 #[must_use]
