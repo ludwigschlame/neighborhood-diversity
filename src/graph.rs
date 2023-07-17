@@ -156,9 +156,11 @@ impl Graph {
             return; // no conversion necessary
         }
 
+        let vertex_count = self.vertex_count();
+
         match representation {
             Representation::AdjacencyList => {
-                let adjacency_list = (0..self.vertex_count())
+                let adjacency_list = (0..vertex_count)
                     .into_par_iter()
                     .map(|vertex| self.neighbors(vertex).to_vec())
                     .collect::<Vec<Vec<usize>>>();
@@ -166,7 +168,7 @@ impl Graph {
                 self.representation = InternalRepresentation::AdjacencyList(adjacency_list);
             }
             Representation::AdjacencyMatrix => {
-                let vertex_count = self.vertex_count();
+                let vertex_count = vertex_count;
                 let mut adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
 
                 adjacency_matrix
@@ -175,7 +177,7 @@ impl Graph {
                     .for_each(|(vertex, neighborhood)| {
                         self.neighbors(vertex).iter().for_each(|&v| {
                             neighborhood[v] = true;
-                        })
+                        });
                     });
 
                 self.representation = InternalRepresentation::AdjacencyMatrix(adjacency_matrix);
@@ -194,8 +196,8 @@ impl Graph {
         let mut rng = rand::thread_rng();
         let mut random_graph = Self::null_graph(vertex_count, representation);
 
-        for u in 0..random_graph.vertex_count {
-            for v in (u + 1)..random_graph.vertex_count {
+        for u in 0..vertex_count {
+            for v in (u + 1)..vertex_count {
                 if rng.gen_bool(probability.clamp(0.0, 1.0).into()) {
                     random_graph.insert_edge_unchecked(u, v);
                 }
@@ -255,8 +257,8 @@ impl Graph {
             set_start
         };
 
-        for u_gen in 0..generator_graph.vertex_count {
-            let set_end_u = if u_gen == generator_graph.vertex_count - 1 {
+        for u_gen in 0..generator_graph.vertex_count() {
+            let set_end_u = if u_gen == generator_graph.vertex_count() - 1 {
                 vertex_count
             } else {
                 set_start[u_gen + 1]
@@ -278,7 +280,7 @@ impl Graph {
                 .iter()
                 .filter(|&&neighbor| neighbor > u_gen)
             {
-                let set_end_v = if v_gen == generator_graph.vertex_count - 1 {
+                let set_end_v = if v_gen == generator_graph.vertex_count() - 1 {
                     vertex_count
                 } else {
                     set_start[v_gen + 1]
@@ -297,7 +299,7 @@ impl Graph {
 
     // shuffles vertex ids while retaining the original graph structure
     pub fn shuffle(&mut self) {
-        let vertex_count = self.vertex_count;
+        let vertex_count = self.vertex_count();
         let mut rng = rand::thread_rng();
         let mut vertex_ids: Vec<usize> = (0..vertex_count).collect();
         vertex_ids.shuffle(&mut rng);
@@ -445,7 +447,7 @@ impl Graph {
     pub fn neighbors(&self, vertex: usize) -> Cow<Vec<usize>> {
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => Cow::Owned(
-                (0..self.vertex_count)
+                (0..self.vertex_count())
                     .filter(|neighbor| adjacency_matrix[vertex][*neighbor])
                     .collect(),
             ),
@@ -459,12 +461,13 @@ impl Graph {
     // takes time O(|V|)
     #[must_use]
     pub fn neighbors_sorted(&self, vertex: usize) -> Vec<usize> {
+        let vertex_count = self.vertex_count();
         let mut neighbors: Vec<bool>;
 
         let neighbors = match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => &adjacency_matrix[vertex],
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                neighbors = vec![false; self.vertex_count()];
+                neighbors = vec![false; vertex_count];
                 adjacency_list[vertex]
                     .iter()
                     .for_each(|&neighbor| neighbors[neighbor] = true);
@@ -472,7 +475,7 @@ impl Graph {
             }
         };
 
-        (0..self.vertex_count)
+        (0..vertex_count)
             .filter(|&neighbor| neighbors[neighbor])
             .collect()
     }
@@ -486,7 +489,7 @@ impl Graph {
                 Cow::Borrowed(&adjacency_matrix[vertex])
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                let mut neighbors = vec![false; self.vertex_count];
+                let mut neighbors = vec![false; self.vertex_count()];
                 adjacency_list[vertex]
                     .iter()
                     .for_each(|&neighbor| neighbors[neighbor] = true);
@@ -519,6 +522,8 @@ impl Graph {
     #[must_use]
     #[allow(clippy::cast_precision_loss)]
     pub fn density(&self) -> f32 {
+        let vertex_count = self.vertex_count();
+
         match &self.representation {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 adjacency_matrix.iter().fold(0, |acc, row| {
@@ -526,14 +531,13 @@ impl Graph {
                         .iter()
                         .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor))
                 }) as f32
-                    / (self.vertex_count * self.vertex_count) as f32
+                    / (vertex_count * vertex_count) as f32
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
-                // adjacency_list.iter().map(Vec::len).sum::<usize>() as f32
                 adjacency_list
                     .iter()
                     .fold(0, |acc, neighborhood| acc + neighborhood.len()) as f32
-                    / (self.vertex_count * self.vertex_count) as f32
+                    / (vertex_count * vertex_count) as f32
             }
         }
     }
@@ -543,10 +547,11 @@ impl Graph {
     // it will then be filled by the DFS
     #[must_use]
     pub fn connected_components(&self) -> Vec<Vec<usize>> {
-        let mut visited = vec![false; self.vertex_count];
+        let vertex_count = self.vertex_count();
+        let mut visited = vec![false; vertex_count];
         let mut connected_components: Vec<Vec<usize>> = vec![];
 
-        for vertex in 0..self.vertex_count {
+        for vertex in 0..vertex_count {
             if !visited[vertex] {
                 let mut new_component = Vec::new();
                 self.depth_first_search(vertex, &mut visited, &mut new_component);
@@ -589,9 +594,11 @@ impl Graph {
     // vertex indices are separated by a comma: u,v
     // adds comments starting with '#'
     pub fn export(&self, path: &str) {
-        let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", self.vertex_count);
-        for u in 0..self.vertex_count {
-            for v in u..self.vertex_count {
+        let vertex_count = self.vertex_count();
+
+        let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", vertex_count);
+        for u in 0..vertex_count {
+            for v in u..vertex_count {
                 if match &self.representation {
                     InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                         adjacency_matrix[u][v]
@@ -617,6 +624,8 @@ impl Graph {
         const DEFAULT_HUE: f32 = 180.0; // Teal
         const VERTEX_SHAPE: &str = "circle";
 
+        let vertex_count = self.vertex_count();
+
         let default_color = Hsl::from(DEFAULT_HUE, SATURATION, LUMINANCE)
             .to_rgb()
             .to_css_hex_string();
@@ -639,7 +648,7 @@ impl Graph {
             }
 
             // inserts vertices by group with their corresponding color and group id
-            let mut remaining_vertices = (0..self.vertex_count).collect::<HashSet<usize>>();
+            let mut remaining_vertices = (0..vertex_count).collect::<HashSet<usize>>();
             for (group_id, color_group) in coloring.iter().enumerate() {
                 for vertex_id in color_group {
                     remaining_vertices.remove(vertex_id);
@@ -667,7 +676,7 @@ impl Graph {
             }
         } else {
             // no coloring provided, thus inserts all vertices with default color and no group id
-            for vertex_id in 0..self.vertex_count {
+            for vertex_id in 0..vertex_count {
                 vis_network.add_node(
                     vertex_id as u128,
                     "",
@@ -680,8 +689,8 @@ impl Graph {
         }
 
         // inserts edges corresponding to those from the original graph
-        for u in 0..self.vertex_count {
-            for v in (u + 1)..self.vertex_count {
+        for u in 0..vertex_count {
+            for v in (u + 1)..vertex_count {
                 if match &self.representation {
                     InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                         adjacency_matrix[u][v]
@@ -764,8 +773,8 @@ impl From<crate::CoTree> for Graph {
             };
         }
 
-        let vertex_count = co_tree.vertex_count();
-        let mut co_graph = Self::null_graph(vertex_count, Representation::AdjacencyMatrix);
+        let mut co_graph =
+            Self::null_graph(co_tree.vertex_count(), Representation::AdjacencyMatrix);
 
         generate_graph(&mut co_graph, co_tree);
 
@@ -816,8 +825,7 @@ impl From<crate::MDTree> for Graph {
             };
         }
 
-        let vertex_count = md_tree.vertex_count();
-        let mut graph = Self::null_graph(vertex_count, Representation::AdjacencyMatrix);
+        let mut graph = Self::null_graph(md_tree.vertex_count(), Representation::AdjacencyMatrix);
 
         generate_graph(&mut graph, md_tree);
 
