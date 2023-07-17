@@ -375,45 +375,49 @@ mod tests {
             .concat()
     }
 
+    fn all_unique(partition: &Vec<Vec<usize>>, vertex_count: usize) {
+        let mut counter = std::collections::HashMap::new();
+
+        for class in partition {
+            for &vertex in class {
+                *counter.entry(vertex).or_insert(0) += 1;
+            }
+        }
+
+        if vertex_count == 0 {
+            assert_eq!(counter.len(), vertex_count);
+            assert_eq!(counter.keys().min(), None);
+            assert_eq!(counter.keys().max(), None);
+        } else {
+            assert_eq!(counter.len(), vertex_count);
+            assert_eq!(counter.keys().min(), Some(&0));
+            assert_eq!(counter.keys().max(), Some(&(vertex_count - 1)));
+            assert!(counter.values().all(|&count| count == 1));
+        }
+    }
+
     fn compare_all(graph: &Graph, expected: usize) {
-        // baseline
-        assert_eq!(baseline(graph).len(), expected);
+        let vertex_count = graph.vertex_count();
 
-        // naive
-        assert_eq!(calc_nd_classes(graph, Options::naive()).len(), expected);
+        let partitions = &[
+            baseline(graph),
+            calc_nd_classes(graph, Options::naive()),
+            calc_nd_classes(graph, Options::new(true, false)),
+            calc_nd_classes(graph, Options::new(false, true)),
+            calc_nd_classes(graph, Options::optimized()),
+            calc_nd_classes_improved(graph, Options::naive()),
+            calc_nd_classes_improved(graph, Options::optimized()),
+            calc_nd_btree(graph),
+            calc_nd_btree_degree(graph),
+            calc_nd_btree_concurrent(graph, THREAD_COUNT),
+        ];
 
-        // degree_filter
-        assert_eq!(
-            calc_nd_classes(graph, Options::new(true, false)).len(),
-            expected
-        );
-
-        // no unnecessary comparisons
-        assert_eq!(
-            calc_nd_classes(graph, Options::new(false, true)).len(),
-            expected
-        );
-
-        // optimized
-        assert_eq!(calc_nd_classes(graph, Options::optimized()).len(), expected);
-
-        // optimized imp
-        assert_eq!(
-            calc_nd_classes_improved(graph, Options::optimized()).len(),
-            expected
-        );
-
-        // btree
-        assert_eq!(calc_nd_btree(graph).len(), expected);
-
-        // btree degree
-        assert_eq!(calc_nd_btree_degree(graph).len(), expected);
-
-        // btree concurrent
-        assert_eq!(
-            calc_nd_btree_concurrent(graph, THREAD_COUNT).len(),
-            expected
-        );
+        for partition in partitions {
+            // check for correct value of neighborhood diversity
+            assert_eq!(partition.len(), expected);
+            // check for uniqueness of vertices in partition
+            all_unique(partition, vertex_count);
+        }
     }
 
     #[test]
@@ -468,6 +472,26 @@ mod tests {
         REPRESENTATIONS.into_par_iter().for_each(|&representation| {
             (0..100).into_par_iter().for_each(|_| {
                 let mut rng = thread_rng();
+                let vertex_count = rng.gen_range(0..=100);
+                let probability = rng.gen::<f32>();
+
+                let mut fuzzy_graph =
+                    Graph::random_graph(vertex_count, probability, representation);
+
+                let expected = baseline(&fuzzy_graph).len();
+
+                fuzzy_graph.shuffle();
+
+                compare_all(&fuzzy_graph, expected);
+            });
+        });
+    }
+
+    #[test]
+    fn fuzzing_nd_limited() {
+        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
+            (0..100).into_par_iter().for_each(|_| {
+                let mut rng = thread_rng();
                 let vertex_count = rng.gen_range(2..=100);
                 let neighborhood_diversity_limit = rng.gen_range(0..=vertex_count);
                 let probability = rng.gen::<f32>();
@@ -516,85 +540,6 @@ mod tests {
 
             compare_all(&complete_graph, expected);
         });
-    }
-
-    #[test]
-    fn no_duplicates() {
-        let all_unique = |partition: &Vec<Vec<usize>>, vertex_count: usize| {
-            let mut counter = std::collections::HashMap::new();
-
-            for class in partition {
-                for &vertex in class {
-                    *counter.entry(vertex).or_insert(0) += 1;
-                }
-            }
-
-            dbg!(
-                &vertex_count,
-                &counter.len(),
-                counter.keys().min(),
-                counter.keys().max(),
-                &counter,
-                &partition
-            );
-
-            counter.len() == vertex_count
-                && counter.keys().min() == Some(&0)
-                && counter.keys().max() == Some(&(vertex_count - 1))
-                && counter.values().all(|&count| count == 1)
-        };
-
-        for graph in &mut test_graphs() {
-            graph.shuffle();
-
-            // baseline
-            assert!(all_unique(&baseline(graph), graph.vertex_count()));
-
-            // naive
-            assert!(all_unique(
-                &calc_nd_classes(graph, Options::naive()),
-                graph.vertex_count()
-            ));
-
-            // degree filter
-            assert!(all_unique(
-                &calc_nd_classes(graph, Options::new(true, false)),
-                graph.vertex_count()
-            ));
-
-            // no unnecessary comparisons
-            assert!(all_unique(
-                &calc_nd_classes(graph, Options::new(false, true)),
-                graph.vertex_count()
-            ));
-
-            // optimized
-            assert!(all_unique(
-                &calc_nd_classes(graph, Options::optimized()),
-                graph.vertex_count()
-            ));
-
-            // optimized imp
-            assert!(all_unique(
-                &calc_nd_classes_improved(graph, Options::optimized()),
-                graph.vertex_count()
-            ));
-
-            // btree
-            assert!(all_unique(&calc_nd_btree(graph), graph.vertex_count()));
-
-            // btree degree
-            assert!(all_unique(
-                &calc_nd_btree_degree(graph),
-                graph.vertex_count()
-            ));
-
-            // btree concurrent
-            assert!(all_unique(
-                &calc_nd_btree_concurrent(graph, THREAD_COUNT),
-                graph.vertex_count()
-            ));
-        }
     }
 
     #[test]
