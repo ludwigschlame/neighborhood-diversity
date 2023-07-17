@@ -7,6 +7,8 @@ use rayon::prelude::*;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    error::Error,
+    fmt::Display,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +32,49 @@ impl From<&InternalRepresentation> for Representation {
             InternalRepresentation::AdjacencyMatrix(_) => Self::AdjacencyMatrix,
             InternalRepresentation::AdjacencyList(_) => Self::AdjacencyList,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct IndexOutOfBoundsError {
+    len: usize,
+    index: usize,
+}
+#[derive(Debug)]
+pub struct InsertSelfLoopError {
+    vertex: usize,
+}
+
+impl IndexOutOfBoundsError {
+    const fn new(len: usize, index: usize) -> Self {
+        Self { len, index }
+    }
+}
+impl InsertSelfLoopError {
+    const fn new(vertex: usize) -> Self {
+        Self { vertex }
+    }
+}
+
+impl Error for IndexOutOfBoundsError {}
+impl Error for InsertSelfLoopError {}
+
+impl Display for IndexOutOfBoundsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "index out of bounds: the vertex count is {} but the index is {}",
+            self.len, self.index
+        )
+    }
+}
+impl Display for InsertSelfLoopError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "error inserting edge {{{}, {}}}: only loop-free graphs are allowed",
+            self.vertex, self.vertex
+        )
     }
 }
 
@@ -357,10 +402,16 @@ impl Graph {
     // returns wether the edge was newly inserted:
     // graph did not contain edge: returns true
     // graph already contained edge: returns false
-    pub fn insert_edge(&mut self, u: usize, v: usize) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn insert_edge(&mut self, u: usize, v: usize) -> Result<bool, Box<dyn Error>> {
         // returns error if index is out of bounds
-        if u >= self.vertex_count || v >= self.vertex_count {
-            return Err("index out of bounds".into());
+        let vertex_count = self.vertex_count();
+        for vertex in [u, v] {
+            if vertex >= vertex_count {
+                return Err(IndexOutOfBoundsError::new(vertex_count, vertex).into());
+            }
+        }
+        if u == v {
+            return Err(InsertSelfLoopError::new(u).into());
         }
 
         // undirected graph -> symmetrical adjacency matrix
@@ -404,10 +455,14 @@ impl Graph {
     // returns wether the edge was present:
     // graph did contain the edge: returns true
     // graph did not contain edge: returns false
-    pub fn remove_edge(&mut self, u: usize, v: usize) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn remove_edge(&mut self, u: usize, v: usize) -> Result<bool, IndexOutOfBoundsError> {
         // returns error if index is out of bounds
-        if u >= self.vertex_count || v >= self.vertex_count {
-            return Err("index out of bounds".into());
+        let vertex_count = self.vertex_count();
+        if u >= vertex_count {
+            return Err(IndexOutOfBoundsError::new(vertex_count, u));
+        }
+        if v >= vertex_count {
+            return Err(IndexOutOfBoundsError::new(vertex_count, v));
         }
 
         // undirected graph -> symmetrical adjacency matrix
