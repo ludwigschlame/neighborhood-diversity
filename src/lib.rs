@@ -387,14 +387,18 @@ mod tests {
         }
 
         if vertex_count == 0 {
-            assert_eq!(counter.len(), vertex_count);
-            assert_eq!(counter.keys().min(), None);
-            assert_eq!(counter.keys().max(), None);
+            assert_eq!(counter.len(), vertex_count, "counter len != vertex count");
+            assert_eq!(counter.keys().min(), None, "counter min != None");
+            assert_eq!(counter.keys().max(), None, "counter max != None");
         } else {
-            assert_eq!(counter.len(), vertex_count);
-            assert_eq!(counter.keys().min(), Some(&0));
-            assert_eq!(counter.keys().max(), Some(&(vertex_count - 1)));
-            assert!(counter.values().all(|&count| count == 1));
+            assert_eq!(counter.len(), vertex_count, "counter len != vertex count");
+            assert_eq!(counter.keys().min(), Some(&0), "counter min != 0");
+            assert_eq!(
+                counter.keys().max(),
+                Some(&(vertex_count - 1)),
+                "counter max != vertex count - 1"
+            );
+            assert!(counter.values().all(|&count| count == 1), "duplicate value");
         }
     }
 
