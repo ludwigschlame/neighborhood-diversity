@@ -1,5 +1,6 @@
+#![allow(unused)]
 use criterion::{criterion_group, criterion_main, Criterion};
-use neighborhood_diversity::*;
+use neighborhood_diversity::prelude::*;
 
 fn nd_calc(c: &mut Criterion) {
     const VERTEX_COUNT: usize = 1e5 as usize;

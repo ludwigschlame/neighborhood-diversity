@@ -1,9 +1,10 @@
-use crate::{CoTree, MDTree, Options};
+use crate::{CoTree, MDTree};
 
-use colors_transform::{Color, Hsl};
-use network_vis::{network::Network, node_options::NodeOptions};
-use rand::{distributions::Uniform, prelude::*};
-use rayon::prelude::*;
+use rand::{
+    distributions::{Distribution, Uniform},
+    seq::SliceRandom,
+    thread_rng, Rng,
+};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -863,7 +864,7 @@ impl From<crate::CoTree> for Graph {
             match co_tree {
                 crate::CoTree::Leaf(_) | crate::CoTree::Empty => {}
                 crate::CoTree::Inner(_, operation, left_child, right_child) => {
-                    if operation == crate::Operation::DisjointSum {
+                    if operation == crate::co_tree::Operation::DisjointSum {
                         for u in left_child.leaves() {
                             for v in right_child.leaves() {
                                 // SAFETY: if leaves are distinct, no vertex pair is visited twice.
@@ -893,7 +894,7 @@ impl From<crate::MDTree> for Graph {
                 crate::MDTree::Leaf(_) | crate::MDTree::Empty => {}
                 crate::MDTree::Inner(_, node_type, children) => {
                     match node_type {
-                        crate::NodeType::Prime(prime_graph) => {
+                        crate::md_tree::NodeType::Prime(prime_graph) => {
                             for u_gen in 0..prime_graph.vertex_count() {
                                 for &v_gen in prime_graph
                                     .neighbors(u_gen)
@@ -909,7 +910,7 @@ impl From<crate::MDTree> for Graph {
                                 }
                             }
                         }
-                        crate::NodeType::Series => {
+                        crate::md_tree::NodeType::Series => {
                             for child_1 in 0..children.len() {
                                 for child_2 in (child_1 + 1)..children.len() {
                                     for u in children[child_1].leaves() {
@@ -921,7 +922,7 @@ impl From<crate::MDTree> for Graph {
                                 }
                             }
                         }
-                        crate::NodeType::Parallel => {}
+                        crate::md_tree::NodeType::Parallel => {}
                     };
 
                     for child in children {
@@ -942,6 +943,7 @@ impl From<crate::MDTree> for Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::*;
     use pretty_assertions::assert_eq;
 
     #[test]

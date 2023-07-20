@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use rand::{distributions::Uniform, prelude::*};
+use rand::{
+    distributions::{Distribution, Uniform},
+    seq::SliceRandom,
+    thread_rng, Rng,
+};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Operation {

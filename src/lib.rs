@@ -6,13 +6,14 @@
 #![allow(clippy::missing_panics_doc)] // missing docs in general (todo!)
 #![allow(clippy::missing_errors_doc)] // missing docs in general (todo!)
 
-mod co_tree;
-mod graph;
-mod md_tree;
+pub mod co_tree;
+pub mod graph;
+pub mod md_tree;
+pub mod prelude;
 
-pub use co_tree::*;
-pub use graph::{Graph, Representation::*};
-pub use md_tree::*;
+use co_tree::CoTree;
+use graph::Graph;
+use md_tree::MDTree;
 
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
@@ -305,6 +306,7 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Pa
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prelude::*;
     use pretty_assertions::assert_eq;
     use rand::{thread_rng, Rng};
     use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};

@@ -1,4 +1,4 @@
-use crate::{graph::Graph, CoTree};
+use crate::graph::Graph;
 
 #[derive(Debug, Clone)]
 pub enum MDTree {
