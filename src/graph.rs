@@ -10,6 +10,8 @@ use std::{
     error::Error,
     fmt::Display,
 };
+pub type AdjacencyMatrix = Vec<Vec<bool>>;
+pub type AdjacencyList = Vec<Vec<usize>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Representation {
@@ -20,9 +22,9 @@ pub enum Representation {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum InternalRepresentation {
     // 2d-vector where vec[u][v] == true iff there is an edge between u and v
-    AdjacencyMatrix(Vec<Vec<bool>>),
+    AdjacencyMatrix(AdjacencyMatrix),
     // vector of vectors where vec[u] contains all neighbors of u
-    AdjacencyList(Vec<Vec<usize>>),
+    AdjacencyList(AdjacencyList),
 }
 
 impl From<&InternalRepresentation> for Representation {
@@ -86,7 +88,9 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub fn from_adjacency_matrix(adjacency_matrix: Vec<Vec<bool>>) -> Result<Self, Box<dyn Error>> {
+    pub fn from_adjacency_matrix(
+        adjacency_matrix: AdjacencyMatrix,
+    ) -> Result<Self, Box<dyn Error>> {
         let vertex_count = adjacency_matrix.len();
 
         // ensure adjacency matrix is square
@@ -117,7 +121,7 @@ impl Graph {
     /// # Safety
     /// Ensure that the adjacency matrix is square, symmetrical and contains no true values on its diagonal
     #[must_use]
-    pub unsafe fn from_adjacency_matrix_unchecked(adjacency_matrix: Vec<Vec<bool>>) -> Self {
+    pub unsafe fn from_adjacency_matrix_unchecked(adjacency_matrix: AdjacencyMatrix) -> Self {
         Self {
             vertex_count: adjacency_matrix.len(),
             representation: InternalRepresentation::AdjacencyMatrix(adjacency_matrix),
@@ -162,7 +166,7 @@ impl Graph {
                 }
             }
             Representation::AdjacencyList => {
-                let mut adjacency_list: Vec<Vec<usize>> = Vec::with_capacity(vertex_count);
+                let mut adjacency_list: AdjacencyList = Vec::with_capacity(vertex_count);
                 for vertex in 0..vertex_count {
                     adjacency_list.push(
                         (0..vertex_count)
@@ -208,7 +212,7 @@ impl Graph {
                 let adjacency_list = (0..vertex_count)
                     .into_par_iter()
                     .map(|vertex| self.neighbors(vertex).to_vec())
-                    .collect::<Vec<Vec<usize>>>();
+                    .collect::<AdjacencyList>();
 
                 self.representation = InternalRepresentation::AdjacencyList(adjacency_list);
             }
