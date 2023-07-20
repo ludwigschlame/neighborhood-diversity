@@ -10,6 +10,18 @@ use std::{
     error::Error,
     fmt::Display,
 };
+
+#[cfg(feature = "par")]
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
+
+#[cfg(feature = "vis")]
+use {
+    colors_transform::{Color, Hsl},
+    network_vis::{network::Network, node_options::NodeOptions},
+};
+
 pub type AdjacencyMatrix = Vec<Vec<bool>>;
 pub type AdjacencyList = Vec<Vec<usize>>;
 
@@ -209,25 +221,30 @@ impl Graph {
 
         match representation {
             Representation::AdjacencyList => {
+                #[cfg(feature = "par")]
                 let adjacency_list = (0..vertex_count)
                     .into_par_iter()
+                    .map(|vertex| self.neighbors(vertex).to_vec())
+                    .collect::<AdjacencyList>();
+
+                #[cfg(not(feature = "par"))]
+                let adjacency_list = (0..vertex_count)
                     .map(|vertex| self.neighbors(vertex).to_vec())
                     .collect::<AdjacencyList>();
 
                 self.representation = InternalRepresentation::AdjacencyList(adjacency_list);
             }
             Representation::AdjacencyMatrix => {
-                let vertex_count = vertex_count;
-                let mut adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
+                #[cfg(feature = "par")]
+                let adjacency_matrix: AdjacencyMatrix = (0..vertex_count)
+                    .into_par_iter()
+                    .map(|vertex| self.neighbors_as_bool_vector(vertex).to_vec())
+                    .collect();
 
-                adjacency_matrix
-                    .par_iter_mut()
-                    .enumerate()
-                    .for_each(|(vertex, neighborhood)| {
-                        self.neighbors(vertex).iter().for_each(|&v| {
-                            neighborhood[v] = true;
-                        });
-                    });
+                #[cfg(not(feature = "par"))]
+                let adjacency_matrix: AdjacencyMatrix = (0..vertex_count)
+                    .map(|vertex| self.neighbors_as_bool_vector(vertex).to_vec())
+                    .collect();
 
                 self.representation = InternalRepresentation::AdjacencyMatrix(adjacency_matrix);
             }
@@ -362,28 +379,49 @@ impl Graph {
             InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
                 let mut shuffled_adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
 
+                #[cfg(feature = "par")]
                 shuffled_adjacency_matrix
                     .par_iter_mut()
                     .enumerate()
-                    .flat_map(|(u, neighborhood)| {
+                    .for_each(|(u, neighborhood)| {
                         neighborhood
-                            .par_iter_mut()
+                            .iter_mut()
                             .enumerate()
-                            .map(move |(v, is_neighbor)| (u, v, is_neighbor))
-                    })
-                    .for_each(|(u, v, is_neighbor)| {
+                            .for_each(|(v, is_neighbor)| {
                         *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]];
+                    });
+                    });
+
+                #[cfg(not(feature = "par"))]
+                shuffled_adjacency_matrix
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(u, neighborhood)| {
+                        neighborhood
+                            .iter_mut()
+                            .enumerate()
+                            .for_each(|(v, is_neighbor)| {
+                                *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]];
+                            });
                     });
 
                 *adjacency_matrix = shuffled_adjacency_matrix;
             }
             InternalRepresentation::AdjacencyList(adjacency_list) => {
                 // permute vertex ids
+                #[cfg(feature = "par")]
                 adjacency_list.par_iter_mut().for_each(|neighborhood| {
                     neighborhood
                         .par_iter_mut()
                         .for_each(|vertex_id| *vertex_id = mapping[vertex_id]);
                 });
+
+                #[cfg(not(feature = "par"))]
+                for neighborhood in adjacency_list.iter_mut() {
+                    neighborhood
+                        .iter_mut()
+                        .for_each(|vertex_id| *vertex_id = mapping[vertex_id]);
+                }
 
                 // permute neighborhoods
                 let mut tmp_adjacency_list = vec![vec![]; vertex_count];
@@ -392,10 +430,16 @@ impl Graph {
                 }
 
                 // shuffle neighborhoods
+                #[cfg(feature = "par")]
                 tmp_adjacency_list.par_iter_mut().for_each(|neighborhood| {
                     let mut rng = thread_rng();
                     neighborhood.shuffle(&mut rng);
                 });
+                #[cfg(not(feature = "par"))]
+                for neighborhood in &mut tmp_adjacency_list {
+                    let mut rng = thread_rng();
+                    neighborhood.shuffle(&mut rng);
+                }
 
                 *adjacency_list = tmp_adjacency_list;
             }
@@ -681,6 +725,7 @@ impl Graph {
 
     // saves an html document showing the graph in visual form
     // optional: vertices can be colored by group if a coloring vector is provided
+    #[cfg(feature = "vis")]
     #[allow(clippy::cast_precision_loss)]
     pub fn visualize(&self, path: &str, coloring: Option<&[Vec<usize>]>) {
         const SATURATION: f32 = 80.0;
@@ -769,12 +814,6 @@ impl Graph {
         }
 
         vis_network.create(path).unwrap();
-    }
-
-    // enables the neighborhood density calculation to be called as a method on the graph
-    #[must_use]
-    pub fn calc_nd_classes(&self, options: Options) -> Vec<Vec<usize>> {
-        crate::calc_nd_classes(self, options)
     }
 }
 
@@ -957,7 +996,10 @@ mod tests {
         let vertex_count = 100;
         let graph = Graph::worst_case_graph(vertex_count, Representation::AdjacencyMatrix);
 
-        assert_eq!(graph.calc_nd_classes(Options::naive()).len(), vertex_count);
+        assert_eq!(
+            calc_nd_classes(&graph, Options::naive()).len(),
+            vertex_count
+        );
     }
 
     #[test]
@@ -972,6 +1014,6 @@ mod tests {
             Representation::AdjacencyMatrix,
         );
 
-        assert!(graph.calc_nd_classes(Options::naive()).len() <= neighborhood_diversity_limit);
+        assert!(calc_nd_classes(&graph, Options::naive()).len() <= neighborhood_diversity_limit);
     }
 }
