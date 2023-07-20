@@ -224,10 +224,6 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Pa
         independent_sets: BTreeMap<Vec<bool>, usize>,
     }
 
-    let thread_count = thread::available_parallelism()
-        .map_or(thread_count, |available_parallelism| {
-            thread_count.min(available_parallelism)
-        });
     let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
 
     thread::scope(|scope| {
