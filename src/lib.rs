@@ -18,6 +18,8 @@ use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
 use std::thread;
 
+pub type Partition = Vec<Vec<usize>>;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
     degree_filter: bool,
@@ -67,9 +69,9 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 }
 
 #[must_use]
-pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
+pub fn calc_nd_classes(graph: &Graph, options: Options) -> Partition {
     let vertex_count = graph.vertex_count();
-    let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
+    let mut neighborhood_partition: Partition = vec![];
     let mut classes = vec![None::<usize>; vertex_count];
 
     // collect degrees for all vertices
@@ -115,9 +117,11 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
 }
 
 #[must_use]
-pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Vec<Vec<usize>> {
+
+#[must_use]
+pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Partition {
     let vertex_count = graph.vertex_count();
-    let mut neighborhood_partition: Vec<Vec<usize>> = vec![];
+    let mut neighborhood_partition: Partition = vec![];
     let mut classified = vec![false; vertex_count];
 
     // collect degrees for all vertices
@@ -154,8 +158,8 @@ pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Vec<Vec<usiz
 }
 
 #[must_use]
-pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
-    let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
+pub fn calc_nd_btree(graph: &Graph) -> Partition {
+    let mut neighborhood_partition: Partition = Vec::new();
     let mut cliques: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
     let mut independent_sets: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
@@ -180,8 +184,8 @@ pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
 }
 
 #[must_use]
-pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
-    let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
+pub fn calc_nd_btree_degree(graph: &Graph) -> Partition {
+    let mut neighborhood_partition: Partition = Vec::new();
     let mut cliques: Vec<BTreeMap<Vec<bool>, usize>> = vec![BTreeMap::new(); graph.vertex_count()];
     let mut independent_sets: Vec<BTreeMap<Vec<bool>, usize>> =
         vec![BTreeMap::new(); graph.vertex_count()];
@@ -211,10 +215,10 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Vec<Vec<usize>> {
 }
 
 #[must_use]
-pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Vec<Vec<usize>> {
+pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
     #[derive(Debug, Default, Clone)]
     struct Data {
-        neighborhood_partition: Vec<Vec<usize>>,
+        neighborhood_partition: Partition,
         cliques: BTreeMap<Vec<bool>, usize>,
         independent_sets: BTreeMap<Vec<bool>, usize>,
     }
@@ -314,7 +318,7 @@ mod tests {
         unsafe { NonZeroUsize::new_unchecked(3) }
     };
 
-    fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
+    fn baseline(graph: &Graph) -> Partition {
         // closure replacing the same_type() function
         let same_type = |u: usize, v: usize| -> bool {
             let mut u_neighbors: Vec<bool> = graph.neighbors_as_bool_vector(u).to_vec();
@@ -330,7 +334,7 @@ mod tests {
         };
 
         let vertex_count: usize = graph.vertex_count();
-        let mut partition: Vec<Vec<usize>> = Vec::new();
+        let mut partition: Partition = Vec::new();
         let mut classes: Vec<Option<usize>> = vec![None; vertex_count];
         let mut nd: usize = 0;
 
@@ -375,7 +379,7 @@ mod tests {
             .concat()
     }
 
-    fn all_unique(partition: &Vec<Vec<usize>>, vertex_count: usize) {
+    fn all_unique(partition: &Partition, vertex_count: usize) {
         let mut counter = std::collections::HashMap::new();
 
         for class in partition {
