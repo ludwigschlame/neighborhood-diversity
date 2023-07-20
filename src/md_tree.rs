@@ -177,27 +177,3 @@ impl MDTree {
         }
     }
 }
-
-impl From<CoTree> for MDTree {
-    fn from(co_tree: crate::CoTree) -> Self {
-        fn convert(co_tree: CoTree) -> MDTree {
-            match co_tree {
-                CoTree::Empty => MDTree::Empty,
-                CoTree::Leaf(id) => MDTree::Leaf(id),
-                CoTree::Inner(vertex_count, operation, left_child, right_child) => {
-                    let node_type = match operation {
-                        crate::Operation::DisjointUnion => NodeType::Parallel,
-                        crate::Operation::DisjointSum => NodeType::Series,
-                    };
-                    MDTree::Inner(
-                        vertex_count,
-                        node_type,
-                        vec![convert(*left_child), convert(*right_child)],
-                    )
-                }
-            }
-        }
-
-        convert(co_tree)
-    }
-}
