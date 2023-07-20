@@ -169,9 +169,9 @@ pub fn calc_nd_btree(graph: &Graph) -> Partition {
         let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
         clique_type[vertex] = true;
 
-        if let Some(&vertex_type) = cliques.get(clique_type) {
+        if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
             neighborhood_partition[vertex_type].push(vertex);
-        } else if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
+        } else if let Some(&vertex_type) = cliques.get(clique_type) {
             neighborhood_partition[vertex_type].push(vertex);
         } else {
             let vertex_type = neighborhood_partition.len();

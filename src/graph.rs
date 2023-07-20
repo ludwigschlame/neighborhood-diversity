@@ -389,8 +389,8 @@ impl Graph {
                             .iter_mut()
                             .enumerate()
                             .for_each(|(v, is_neighbor)| {
-                        *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]];
-                    });
+                                *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]];
+                            });
                     });
 
                 #[cfg(not(feature = "par"))]
