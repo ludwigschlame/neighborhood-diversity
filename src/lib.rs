@@ -118,6 +118,91 @@ pub fn calc_nd_classes(graph: &Graph, options: Options) -> Partition {
 }
 
 #[must_use]
+pub fn calc_nd_classes_concurrent(
+    graph: &Graph,
+    options: Options,
+    thread_count: NonZeroUsize,
+) -> Partition {
+    struct Data {
+        partition: Partition,
+        range: (usize, usize),
+    }
+
+    let vertex_count = graph.vertex_count();
+    let mut neighborhood_partition: Partition;
+    let mut thread_data: Vec<Data> = vec![];
+
+    for thread_id in 0..thread_count.into() {
+        thread_data.push(Data {
+            partition: vec![],
+            range: (
+                thread_id * vertex_count / thread_count,
+                (thread_id + 1) * vertex_count / thread_count,
+            ),
+        });
+    }
+
+    thread::scope(|scope| {
+        for data in &mut thread_data {
+            scope.spawn(move || {
+                let mut classified = vec![false; data.range.1 - data.range.0];
+
+                // collect degrees for all vertices
+                let degrees: Vec<usize> = if options.degree_filter {
+                    (data.range.0..data.range.1)
+                        .map(|vertex| graph.degree(vertex))
+                        .collect()
+                } else {
+                    vec![]
+                };
+
+                for u in data.range.0..data.range.1 {
+                    if classified[u - data.range.0] {
+                        continue;
+                    }
+
+                    let mut neighborhood_class = vec![u];
+                    for v in (u + 1)..data.range.1 {
+                        if options.no_unnecessary_type_comparisons && classified[v - data.range.0]
+                            || options.degree_filter
+                                && degrees[u - data.range.0] != degrees[v - data.range.0]
+                        {
+                            continue;
+                        }
+
+                        if same_type(graph, u, v) {
+                            classified[v - data.range.0] = true;
+                            neighborhood_class.push(v);
+                        }
+                    }
+                    data.partition.push(neighborhood_class);
+                }
+            });
+        }
+    });
+
+    neighborhood_partition = thread_data.pop().unwrap().partition;
+
+    for partition in &mut thread_data {
+        for class1 in &mut partition.partition {
+            let mut found = false;
+            for class2 in &mut neighborhood_partition {
+                if same_type(graph, class1[0], class2[0]) {
+                    class2.append(class1);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                let mut i = vec![];
+                i.append(class1);
+                neighborhood_partition.push(i);
+            }
+        }
+    }
+
+    neighborhood_partition
+}
 
 #[must_use]
 pub fn calc_nd_classes_improved(graph: &Graph, options: Options) -> Partition {
@@ -413,6 +498,8 @@ mod tests {
             calc_nd_classes(graph, Options::optimized()),
             calc_nd_classes_improved(graph, Options::naive()),
             calc_nd_classes_improved(graph, Options::optimized()),
+            calc_nd_classes_concurrent(graph, Options::naive(), THREAD_COUNT),
+            calc_nd_classes_concurrent(graph, Options::optimized(), THREAD_COUNT),
             calc_nd_btree(graph),
             calc_nd_btree_degree(graph),
             calc_nd_btree_concurrent(graph, THREAD_COUNT),
