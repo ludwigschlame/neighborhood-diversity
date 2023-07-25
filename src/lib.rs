@@ -6,12 +6,12 @@
 #![allow(clippy::missing_panics_doc)] // missing docs in general (todo!)
 #![allow(clippy::missing_errors_doc)] // missing docs in general (todo!)
 
-pub mod co_tree;
+pub mod cotree;
 pub mod graph;
 pub mod md_tree;
 pub mod prelude;
 
-use co_tree::CoTree;
+use cotree::Cotree;
 use graph::Graph;
 use md_tree::MDTree;
 

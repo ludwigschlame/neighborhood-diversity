@@ -1,4 +1,4 @@
-pub use crate::co_tree::CoTree;
+pub use crate::cotree::Cotree;
 pub use crate::graph::Graph;
 pub use crate::graph::Representation::*;
 pub use crate::md_tree::MDTree;

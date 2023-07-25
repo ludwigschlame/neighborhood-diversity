@@ -1,4 +1,4 @@
-use crate::{CoTree, MDTree};
+use crate::{Cotree, MDTree};
 
 use rand::{
     distributions::{Distribution, Uniform},
@@ -858,13 +858,13 @@ impl std::str::FromStr for Graph {
     }
 }
 
-impl From<crate::CoTree> for Graph {
-    fn from(co_tree: crate::CoTree) -> Self {
-        fn generate_graph(co_graph: &mut Graph, co_tree: CoTree) {
+impl From<crate::Cotree> for Graph {
+    fn from(co_tree: crate::Cotree) -> Self {
+        fn generate_graph(co_graph: &mut Graph, co_tree: Cotree) {
             match co_tree {
-                crate::CoTree::Leaf(_) | crate::CoTree::Empty => {}
-                crate::CoTree::Inner(_, operation, left_child, right_child) => {
-                    if operation == crate::co_tree::Operation::DisjointSum {
+                crate::Cotree::Leaf(_) | crate::Cotree::Empty => {}
+                crate::Cotree::Inner(_, operation, left_child, right_child) => {
+                    if operation == crate::cotree::Operation::DisjointSum {
                         for u in left_child.leaves() {
                             for v in right_child.leaves() {
                                 // SAFETY: if leaves are distinct, no vertex pair is visited twice.

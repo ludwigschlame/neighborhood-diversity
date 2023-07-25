@@ -13,7 +13,7 @@ pub enum Operation {
 }
 
 #[derive(Debug, Clone)]
-pub enum CoTree {
+pub enum Cotree {
     // corresponds to an empty graph
     Empty,
     // vertex of co-graph
@@ -24,7 +24,7 @@ pub enum CoTree {
     Inner(usize, Operation, Box<Self>, Box<Self>),
 }
 
-impl CoTree {
+impl Cotree {
     // calls random tree generator with initial offset 0
     #[must_use]
     pub fn random_tree(vertex_count: usize, density: f32) -> Self {
@@ -113,9 +113,10 @@ impl CoTree {
         match self {
             Self::Empty => vec![],
             Self::Leaf(id) => vec![*id],
-            Self::Inner(.., left_child, right_child) => {
-                [left_child.leaves(), right_child.leaves()].concat()
-            }
+            Self::Inner(.., left_child, right_child) => [left_child, right_child]
+                .iter()
+                .flat_map(|&child| child.leaves())
+                .collect::<Vec<usize>>(),
         }
     }
 
