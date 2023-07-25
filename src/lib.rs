@@ -446,7 +446,7 @@ mod tests {
 
         REPRESENTATIONS
             .iter()
-            .map(|&representation| {
+            .flat_map(|&representation| {
                 (0..GRAPHS_PER_REPRESENTATION)
                     .map(|_| {
                         Graph::random_graph_nd_limited(
@@ -458,8 +458,7 @@ mod tests {
                     })
                     .collect::<Vec<Graph>>()
             })
-            .collect::<Vec<Vec<Graph>>>()
-            .concat()
+            .collect::<Vec<Graph>>()
     }
 
     fn all_unique(partition: &Partition, vertex_count: usize) {
