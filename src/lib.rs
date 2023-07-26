@@ -648,7 +648,7 @@ mod tests {
             match graph.representation() {
                 AdjacencyMatrix => graph.convert_representation(AdjacencyList),
                 AdjacencyList => graph.convert_representation(AdjacencyMatrix),
-            }
+            };
 
             assert_eq!(baseline(graph).len(), expected);
         }

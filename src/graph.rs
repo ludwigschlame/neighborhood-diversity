@@ -239,9 +239,9 @@ impl Graph {
 
     // converts graph to the specified representation
     // does nothing if graph is already in the correct representation
-    pub fn convert_representation(&mut self, representation: Representation) {
+    pub fn convert_representation(&mut self, representation: Representation) -> &mut Self {
         if self.representation() == representation {
-            return; // no conversion necessary
+            return self; // no conversion necessary
         }
 
         let vertex_count = self.vertex_count();
@@ -276,6 +276,8 @@ impl Graph {
                 self.representation = InternalRepresentation::AdjacencyMatrix(adjacency_matrix);
             }
         }
+
+        self
     }
 
     // constructs a random graph after Gilbert's model G(n, p)
@@ -394,7 +396,7 @@ impl Graph {
     }
 
     // shuffles vertex ids while retaining the original graph structure
-    pub fn shuffle(&mut self) {
+    pub fn shuffle(&mut self) -> &mut Self {
         let vertex_count = self.vertex_count();
         let mut rng = rand::thread_rng();
         let mut vertex_ids: Vec<usize> = (0..vertex_count).collect();
@@ -471,6 +473,8 @@ impl Graph {
                 *adjacency_list = tmp_adjacency_list;
             }
         }
+
+        self
     }
 
     // inserts edge (u, v) into the graph
