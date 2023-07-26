@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rand::{
     distributions::{Distribution, Uniform},
     seq::SliceRandom,
-    thread_rng, Rng,
+    Rng,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -42,7 +42,7 @@ impl Cotree {
             return Self::Leaf(offset);
         }
 
-        let mut rng = thread_rng();
+        let mut rng = rand::thread_rng();
         let left_vertex_count = Uniform::from(1..vertex_count).sample(&mut rng);
         let right_vertex_count = vertex_count - left_vertex_count;
         let right_offset = offset + left_vertex_count;

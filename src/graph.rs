@@ -3,7 +3,7 @@ use crate::{Cotree, MDTree};
 use rand::{
     distributions::{Distribution, Uniform},
     seq::SliceRandom,
-    thread_rng, Rng,
+    Rng,
 };
 use std::{
     borrow::Cow,
@@ -433,12 +433,12 @@ impl Graph {
                 // shuffle neighborhoods
                 #[cfg(feature = "par")]
                 tmp_adjacency_list.par_iter_mut().for_each(|neighborhood| {
-                    let mut rng = thread_rng();
+                    let mut rng = rand::thread_rng();
                     neighborhood.shuffle(&mut rng);
                 });
                 #[cfg(not(feature = "par"))]
                 for neighborhood in &mut tmp_adjacency_list {
-                    let mut rng = thread_rng();
+                    let mut rng = rand::thread_rng();
                     neighborhood.shuffle(&mut rng);
                 }
 

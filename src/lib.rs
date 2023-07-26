@@ -389,7 +389,7 @@ mod tests {
     use super::*;
     use crate::prelude::*;
     use pretty_assertions::assert_eq;
-    use rand::{thread_rng, Rng};
+    use rand::Rng;
     use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
     const VERTEX_COUNT: usize = 100;
@@ -563,7 +563,7 @@ mod tests {
     fn fuzzing() {
         REPRESENTATIONS.into_par_iter().for_each(|&representation| {
             (0..100).into_par_iter().for_each(|_| {
-                let mut rng = thread_rng();
+                let mut rng = rand::thread_rng();
                 let vertex_count = rng.gen_range(0..=100);
                 let probability = rng.gen::<f32>();
 
@@ -583,7 +583,7 @@ mod tests {
     fn fuzzing_nd_limited() {
         REPRESENTATIONS.into_par_iter().for_each(|&representation| {
             (0..100).into_par_iter().for_each(|_| {
-                let mut rng = thread_rng();
+                let mut rng = rand::thread_rng();
                 let vertex_count = rng.gen_range(2..=100);
                 let neighborhood_diversity_limit = rng.gen_range(0..=vertex_count);
                 let probability = rng.gen::<f32>();
