@@ -32,7 +32,8 @@ pub enum Representation {
     AdjacencyList,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 enum InternalRepresentation {
     // 2d-vector where vec[u][v] == true iff there is an edge between u and v
     AdjacencyMatrix(AdjacencyMatrix),
@@ -50,46 +51,63 @@ impl From<&InternalRepresentation> for Representation {
     }
 }
 
-#[derive(Debug)]
-pub struct IndexOutOfBoundsError {
-    len: usize,
-    index: usize,
-}
-#[derive(Debug)]
-pub struct InsertSelfLoopError {
-    vertex: usize,
+#[derive(Debug, Clone, Copy)]
+pub enum IndexError {
+    OutOfBounds(/* vertex_count: */ usize, /* vertex_id: */ usize),
+    SelfLoop(/* vertex_id: */ usize),
 }
 
-impl IndexOutOfBoundsError {
-    const fn new(len: usize, index: usize) -> Self {
-        Self { len, index }
-    }
-}
-impl InsertSelfLoopError {
-    const fn new(vertex: usize) -> Self {
-        Self { vertex }
-    }
+#[derive(Debug, Clone, Copy)]
+pub enum AdjacencyMatrixError {
+    NotSquare(
+        /* row_count: */ usize,
+        /* row_id: */ usize,
+        /* row_len: */ usize,
+    ),
+    TrueOnDiagonal(/* vertex_id: */ usize),
+    NotSymmetrical(/* vertex_id_1: */ usize, /* vertex_id_2: */ usize),
 }
 
-impl Error for IndexOutOfBoundsError {}
-impl Error for InsertSelfLoopError {}
+impl Error for IndexError {}
+impl Error for AdjacencyMatrixError {}
 
-impl Display for IndexOutOfBoundsError {
+impl Display for IndexError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "index out of bounds: the vertex count is {} but the index is {}",
-            self.len, self.index
-        )
+        let message = match self {
+            Self::OutOfBounds(vertex_count, vertex) => format!(
+                "index out of bounds: the vertex count is {} but the index is {}",
+                vertex_count, vertex
+            ),
+            Self::SelfLoop(u) => format!(
+                "error inserting edge {{{}, {}}}: self-loops are not allowed",
+                u, u
+            ),
+        };
+
+        write!(f, "{}", message)
     }
 }
-impl Display for InsertSelfLoopError {
+
+impl Display for AdjacencyMatrixError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "error inserting edge {{{}, {}}}: only loop-free graphs are allowed",
-            self.vertex, self.vertex
-        )
+        let message = match self {
+            Self::NotSquare(row_count, row_id, row_len) => format!(
+                "adjacency matrix is not square: has {} rows but row #{} has {} elements",
+                row_count, row_id, row_len
+            ),
+            Self::TrueOnDiagonal(u) => {
+                format!(
+                    "adjacency matrix contains true value on diagonal: matrix[{}][{}] == true",
+                    u, u
+                )
+            }
+            Self::NotSymmetrical(u, v) => format!(
+                "adjacency matrix is not symmetrical: matrix[{}][{}] != matrix[{}][{}]",
+                u, v, v, u
+            ),
+        };
+
+        write!(f, "{}", message)
     }
 }
 
@@ -103,24 +121,32 @@ pub struct Graph {
 impl Graph {
     pub fn from_adjacency_matrix(
         adjacency_matrix: AdjacencyMatrix,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, AdjacencyMatrixError> {
         let vertex_count = adjacency_matrix.len();
 
         // ensure adjacency matrix is square
-        if !adjacency_matrix.iter().all(|row| row.len() == vertex_count) {
-            return Err("adjacency matrix not square".into());
+        if let Some(row) = adjacency_matrix
+            .iter()
+            .enumerate()
+            .find(|(_, row)| row.len() != vertex_count)
+        {
+            return Err(AdjacencyMatrixError::NotSquare(
+                vertex_count,
+                row.0,
+                row.1.len(),
+            ));
         }
 
         // ensure there are no self-loops by checking diagonal
-        if !(0..vertex_count).all(|vertex| !adjacency_matrix[vertex][vertex]) {
-            return Err("only loop-free graphs are allowed".into());
+        if let Some(vertex) = (0..vertex_count).find(|&vertex| adjacency_matrix[vertex][vertex]) {
+            return Err(AdjacencyMatrixError::TrueOnDiagonal(vertex));
         }
 
         // ensure adjacency matrix is symmetrical
         for u in 0..vertex_count {
             for v in (u + 1)..vertex_count {
                 if adjacency_matrix[u][v] != adjacency_matrix[v][u] {
-                    return Err("adjacency matrix not symmetrical".into());
+                    return Err(AdjacencyMatrixError::NotSymmetrical(u, v));
                 }
             }
         }
@@ -451,16 +477,16 @@ impl Graph {
     // returns wether the edge was newly inserted:
     // graph did not contain edge: returns true
     // graph already contained edge: returns false
-    pub fn insert_edge(&mut self, u: usize, v: usize) -> Result<bool, Box<dyn Error>> {
+    pub fn insert_edge(&mut self, u: usize, v: usize) -> Result<bool, IndexError> {
         // returns error if index is out of bounds
         let vertex_count = self.vertex_count();
         for vertex in [u, v] {
             if vertex >= vertex_count {
-                return Err(IndexOutOfBoundsError::new(vertex_count, vertex).into());
+                return Err(IndexError::OutOfBounds(vertex_count, vertex));
             }
         }
         if u == v {
-            return Err(InsertSelfLoopError::new(u).into());
+            return Err(IndexError::SelfLoop(u));
         }
 
         // undirected graph -> symmetrical adjacency matrix
@@ -504,14 +530,13 @@ impl Graph {
     // returns wether the edge was present:
     // graph did contain the edge: returns true
     // graph did not contain edge: returns false
-    pub fn remove_edge(&mut self, u: usize, v: usize) -> Result<bool, IndexOutOfBoundsError> {
+    pub fn remove_edge(&mut self, u: usize, v: usize) -> Result<bool, IndexError> {
         // returns error if index is out of bounds
         let vertex_count = self.vertex_count();
-        if u >= vertex_count {
-            return Err(IndexOutOfBoundsError::new(vertex_count, u));
-        }
-        if v >= vertex_count {
-            return Err(IndexOutOfBoundsError::new(vertex_count, v));
+        for vertex in [u, v] {
+            if vertex >= vertex_count {
+                return Err(IndexError::OutOfBounds(vertex_count, vertex));
+            }
         }
 
         // undirected graph -> symmetrical adjacency matrix
@@ -824,7 +849,7 @@ impl Graph {
 // vertex indices are separated by a comma: u,v
 // ignores: empty lines; lines starting with '#', '//' or '%'
 impl std::str::FromStr for Graph {
-    type Err = Box<dyn std::error::Error>;
+    type Err = Box<dyn Error>;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         // filter out comments and empty lines
@@ -858,8 +883,8 @@ impl std::str::FromStr for Graph {
     }
 }
 
-impl From<crate::Cotree> for Graph {
-    fn from(co_tree: crate::Cotree) -> Self {
+impl From<Cotree> for Graph {
+    fn from(co_tree: Cotree) -> Self {
         fn generate_graph(co_graph: &mut Graph, co_tree: Cotree) {
             match co_tree {
                 crate::Cotree::Leaf(_) | crate::Cotree::Empty => {}
@@ -887,8 +912,8 @@ impl From<crate::Cotree> for Graph {
     }
 }
 
-impl From<crate::MDTree> for Graph {
-    fn from(md_tree: crate::MDTree) -> Self {
+impl From<MDTree> for Graph {
+    fn from(md_tree: MDTree) -> Self {
         fn generate_graph(graph: &mut Graph, md_tree: MDTree) {
             match md_tree {
                 crate::MDTree::Leaf(_) | crate::MDTree::Empty => {}
