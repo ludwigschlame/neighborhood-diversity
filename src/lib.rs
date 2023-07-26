@@ -5,6 +5,13 @@
 #![allow(clippy::uninlined_format_args)] // inlined format args don's support batch renaming (yet?)
 #![allow(clippy::missing_panics_doc)] // missing docs in general (todo!)
 #![allow(clippy::missing_errors_doc)] // missing docs in general (todo!)
+#![warn( // useful lints that are allowed by default
+    missing_debug_implementations,
+    missing_copy_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_qualifications
+)]
 
 pub mod cotree;
 pub mod graph;
