@@ -722,11 +722,18 @@ impl Graph {
     // first line contains number of vertices
     // following lines list one edge each
     // vertex indices are separated by a comma: u,v
-    // adds comments starting with '#'
-    pub fn export(&self, path: &str) {
+    // adds comments starting with '#', except when 'raw_output' == true
+    pub fn export<P>(&self, path: P, raw_output: bool)
+    where
+        P: AsRef<std::path::Path>,
+    {
         let vertex_count = self.vertex_count();
 
-        let mut output = format!("# Number of Vertices\n{}\n\n# Edges\n", vertex_count);
+        let mut output = if raw_output {
+            format!("{}\n", vertex_count)
+        } else {
+            format!("# Number of Vertices\n{}\n\n# Edges\n", vertex_count)
+        };
         for u in 0..vertex_count {
             for v in u..vertex_count {
                 if match &self.representation {
@@ -749,7 +756,10 @@ impl Graph {
     // optional: vertices can be colored by group if a coloring vector is provided
     #[cfg(feature = "vis")]
     #[allow(clippy::cast_precision_loss)]
-    pub fn visualize(&self, path: &str, coloring: Option<&[Vec<usize>]>) {
+    pub fn visualize<P>(&self, path: P, coloring: Option<&[&[usize]]>) -> Result<(), Box<dyn Error>>
+    where
+        P: AsRef<std::path::Path>,
+    {
         const SATURATION: f32 = 80.0;
         const LUMINANCE: f32 = 80.0;
         const DEFAULT_HUE: f32 = 180.0; // Teal
@@ -835,7 +845,12 @@ impl Graph {
             }
         }
 
-        vis_network.create(path).unwrap();
+        let path_as_str = path
+            .as_ref()
+            .to_str()
+            .ok_or("failed to convert path to valid UTF-8 string")?;
+        vis_network.create(path_as_str)?;
+        Ok(())
     }
 }
 
