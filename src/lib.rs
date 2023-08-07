@@ -256,23 +256,26 @@ pub fn calc_nd_classes_improved(graph: &Graph, optimizations: Optimizations) -> 
 #[must_use]
 pub fn calc_nd_btree(graph: &Graph) -> Partition {
     let mut neighborhood_partition: Partition = Vec::new();
+    let mut independent_sets: BTreeMap<&Vec<bool>, usize> = BTreeMap::new();
     let mut cliques: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
-    let mut independent_sets: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.vertex_count() {
-        let independent_set_type: &Vec<bool> = &graph.neighbors_as_bool_vector(vertex);
-        let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
-        clique_type[vertex] = true;
+        let independent_set_type = graph.neighbors_as_bool_vector(vertex);
+        let mut clique_type;
 
         if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
             neighborhood_partition[vertex_type].push(vertex);
-        } else if let Some(&vertex_type) = cliques.get(clique_type) {
+        } else if let Some(&vertex_type) = cliques.get({
+            clique_type = independent_set_type.clone();
+            clique_type[vertex] = true;
+            &clique_type
+        }) {
             neighborhood_partition[vertex_type].push(vertex);
         } else {
             let vertex_type = neighborhood_partition.len();
             neighborhood_partition.push(vec![vertex]);
-            cliques.insert(clique_type.clone(), vertex_type);
-            independent_sets.insert(independent_set_type.clone(), vertex_type);
+            independent_sets.insert(independent_set_type, vertex_type);
+            cliques.insert(clique_type, vertex_type);
         }
     }
 
@@ -312,11 +315,13 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Partition {
 
 #[must_use]
 pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
+    type VertexType = Vec<bool>;
+
     #[derive(Debug, Default, Clone)]
-    struct Data {
+    struct Data<'is> {
         neighborhood_partition: Partition,
+        independent_sets: BTreeMap<&'is Vec<bool>, usize>,
         cliques: BTreeMap<Vec<bool>, usize>,
-        independent_sets: BTreeMap<Vec<bool>, usize>,
     }
 
     let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
@@ -324,26 +329,121 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Pa
     thread::scope(|scope| {
         for (thread_id, data) in thread_data.iter_mut().enumerate() {
             scope.spawn(move || {
-                let start = thread_id * graph.vertex_count() / thread_count;
-                let end = (thread_id + 1) * graph.vertex_count() / thread_count;
+                let range = thread_id * graph.vertex_count() / thread_count
+                    ..(thread_id + 1) * graph.vertex_count() / thread_count;
 
-                for vertex in start..end {
-                    let independent_set_type: &Vec<bool> = &graph.neighbors_as_bool_vector(vertex);
-                    let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
-                    clique_type[vertex] = true;
+                for vertex in range {
+                    let independent_set_type: &VertexType = graph.neighbors_as_bool_vector(vertex);
+                    let mut clique_type;
 
-                    if let Some(&vertex_type) = data.cliques.get(&clique_type.clone()) {
+                    if let Some(&vertex_type) = data.independent_sets.get(independent_set_type) {
                         data.neighborhood_partition[vertex_type].push(vertex);
-                    } else if let Some(&vertex_type) =
-                        data.independent_sets.get(&independent_set_type.clone())
-                    {
+                    } else if let Some(&vertex_type) = data.cliques.get({
+                        clique_type = independent_set_type.clone();
+                        clique_type[vertex] = true;
+                        &clique_type
+                    }) {
                         data.neighborhood_partition[vertex_type].push(vertex);
                     } else {
                         let vertex_type = data.neighborhood_partition.len();
                         data.neighborhood_partition.push(vec![vertex]);
-                        data.cliques.insert(clique_type.clone(), vertex_type);
                         data.independent_sets
-                            .insert(independent_set_type.clone(), vertex_type);
+                            .insert(independent_set_type, vertex_type);
+                        data.cliques.insert(clique_type, vertex_type);
+                    }
+                }
+            });
+        }
+    });
+
+    // collect into last element
+    let mut collection = thread_data.pop().expect("len is non-zero");
+
+    // merge neighborhood partitions
+    for data in &mut thread_data {
+        let mut not_found: Vec<(Option<&VertexType>, Option<&VertexType>)> =
+            vec![(None, None); data.neighborhood_partition.len()];
+
+        for (clique_type, &class) in &data.cliques {
+            if let Some(&get) = collection.cliques.get(clique_type) {
+                collection.neighborhood_partition[get]
+                    .append(&mut data.neighborhood_partition[class]);
+            } else {
+                not_found[class].0 = Some(clique_type);
+            }
+        }
+
+        for (is_type, &class) in &data.independent_sets {
+            if not_found[class].0.is_none() {
+                continue;
+            }
+            if let Some(&get) = collection.independent_sets.get(is_type) {
+                collection.neighborhood_partition[get]
+                    .append(&mut data.neighborhood_partition[class]);
+            } else {
+                not_found[class].1 = Some(is_type);
+            }
+        }
+
+        // insert remaining classes into collection
+        for (class, (clique_type, is_type)) in not_found
+            .iter()
+            .enumerate()
+            .filter(|(_class, found)| found.1.is_some() && found.0.is_some())
+        {
+            // insert clique type into collection
+            collection
+                .cliques
+                .insert(clique_type.unwrap().clone(), class);
+            // insert independent set type into collection
+            collection.independent_sets.insert(is_type.unwrap(), class);
+            // add vertices as new neighborhood class
+            collection
+                .neighborhood_partition
+                .push(data.neighborhood_partition[class].clone());
+        }
+    }
+
+    collection.neighborhood_partition
+}
+
+#[must_use]
+pub fn calc_nd_btree_concurrent_old(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
+    type VertexType = Vec<bool>;
+
+    #[derive(Debug, Default, Clone)]
+    struct Data<'a> {
+        neighborhood_partition: Partition,
+        independent_sets: BTreeMap<&'a Vec<bool>, usize>,
+        cliques: BTreeMap<Vec<bool>, usize>,
+    }
+
+    let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
+
+    thread::scope(|scope| {
+        for (thread_id, data) in thread_data.iter_mut().enumerate() {
+            scope.spawn(move || {
+                let range = thread_id * graph.vertex_count() / thread_count
+                    ..(thread_id + 1) * graph.vertex_count() / thread_count;
+
+                for vertex in range {
+                    let independent_set_type: &VertexType = graph.neighbors_as_bool_vector(vertex);
+                    let mut clique_type;
+
+                    if let Some(&vertex_type) = data.independent_sets.get(independent_set_type) {
+                        data.neighborhood_partition[vertex_type].push(vertex);
+                    } else if let Some(&vertex_type) = data.cliques.get({
+                        clique_type = independent_set_type.clone();
+                        clique_type[vertex] = true;
+                        &clique_type
+                    }) {
+                        data.neighborhood_partition[vertex_type].push(vertex);
+                    } else {
+                        let vertex_type = data.neighborhood_partition.len();
+                        data.neighborhood_partition.push(vec![vertex]);
+                        data.independent_sets
+                            .insert(independent_set_type, vertex_type);
+                        data.cliques.insert(clique_type, vertex_type);
                     }
                 }
             });
@@ -357,10 +457,10 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Pa
         let cliques_inverted: BTreeMap<usize, Vec<bool>> =
             data.cliques.iter().map(|(k, v)| (*v, k.clone())).collect();
 
-        let independent_sets_inverted: BTreeMap<usize, Vec<bool>> = data
+        let independent_sets_inverted: BTreeMap<usize, &Vec<bool>> = data
             .independent_sets
             .iter()
-            .map(|(k, v)| (*v, k.clone()))
+            .map(|(&k, &v)| (v, k))
             .collect();
 
         for (vertex_type, vertices) in data.neighborhood_partition.iter().enumerate() {
@@ -382,7 +482,7 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Pa
                 );
                 // insert independent set type into collection
                 collection.independent_sets.insert(
-                    independent_sets_inverted.get(&vertex_type).unwrap().clone(),
+                    independent_sets_inverted.get(&vertex_type).unwrap(),
                     collection.neighborhood_partition.len(),
                 );
                 // add vertices as new type
@@ -512,6 +612,7 @@ mod tests {
             calc_nd_btree(graph),
             calc_nd_btree_degree(graph),
             calc_nd_btree_concurrent(graph, THREAD_COUNT),
+            calc_nd_btree_concurrent_old(graph, THREAD_COUNT),
         ];
 
         for partition in partitions {
