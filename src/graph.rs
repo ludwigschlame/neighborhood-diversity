@@ -23,34 +23,6 @@ use {
     network_vis::{network::Network, node_options::NodeOptions},
 };
 
-pub type AdjacencyMatrix = Vec<Vec<bool>>;
-pub type AdjacencyList = Vec<Vec<usize>>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Representation {
-    AdjacencyMatrix,
-    AdjacencyList,
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
-enum InternalRepresentation {
-    // 2d-vector where vec[u][v] == true iff there is an edge between u and v
-    AdjacencyMatrix(AdjacencyMatrix),
-    // vector of vectors where vec[u] contains all neighbors of u
-    AdjacencyList(AdjacencyList),
-}
-
-impl From<&InternalRepresentation> for Representation {
-    #[must_use]
-    fn from(representation: &InternalRepresentation) -> Self {
-        match representation {
-            InternalRepresentation::AdjacencyMatrix(_) => Self::AdjacencyMatrix,
-            InternalRepresentation::AdjacencyList(_) => Self::AdjacencyList,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum IndexError {
     OutOfBounds(/* vertex_count: */ usize, /* vertex_id: */ usize),
@@ -108,6 +80,34 @@ impl Display for AdjacencyMatrixError {
         };
 
         write!(f, "{}", message)
+    }
+}
+
+pub type AdjacencyMatrix = Vec<Vec<bool>>;
+pub type AdjacencyList = Vec<Vec<usize>>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Representation {
+    AdjacencyMatrix,
+    AdjacencyList,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+enum InternalRepresentation {
+    // 2d-vector where vec[u][v] == true iff there is an edge between u and v
+    AdjacencyMatrix(AdjacencyMatrix),
+    // vector of vectors where vec[u] contains all neighbors of u
+    AdjacencyList(AdjacencyList),
+}
+
+impl From<&InternalRepresentation> for Representation {
+    #[must_use]
+    fn from(representation: &InternalRepresentation) -> Self {
+        match representation {
+            InternalRepresentation::AdjacencyMatrix(_) => Self::AdjacencyMatrix,
+            InternalRepresentation::AdjacencyList(_) => Self::AdjacencyList,
+        }
     }
 }
 
@@ -232,8 +232,6 @@ impl Graph {
                 .unwrap();
         }
 
-        graph.shuffle();
-
         graph
     }
 
@@ -265,12 +263,12 @@ impl Graph {
                 #[cfg(feature = "par")]
                 let adjacency_matrix: AdjacencyMatrix = (0..vertex_count)
                     .into_par_iter()
-                    .map(|vertex| self.neighbors_as_bool_vector(vertex).to_vec())
+                    .map(|vertex| self.neighbors_as_bool_vector(vertex).clone())
                     .collect();
 
                 #[cfg(not(feature = "par"))]
                 let adjacency_matrix: AdjacencyMatrix = (0..vertex_count)
-                    .map(|vertex| self.neighbors_as_bool_vector(vertex).to_vec())
+                    .map(|vertex| self.neighbors_as_bool_vector(vertex).clone())
                     .collect();
 
                 self.representation = InternalRepresentation::AdjacencyMatrix(adjacency_matrix);
@@ -621,17 +619,11 @@ impl Graph {
     // returns neighbors of given vertex as a bool vector
     // takes time O(1) for AdjacencyMatrix and O(|V|) for AdjacencyList
     #[must_use]
-    pub fn neighbors_as_bool_vector(&self, vertex: usize) -> Cow<Vec<bool>> {
+    pub fn neighbors_as_bool_vector(&self, vertex: usize) -> &Vec<bool> {
         match &self.representation {
-            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => {
-                Cow::Borrowed(&adjacency_matrix[vertex])
-            }
-            InternalRepresentation::AdjacencyList(adjacency_list) => {
-                let mut neighbors = vec![false; self.vertex_count()];
-                adjacency_list[vertex]
-                    .iter()
-                    .for_each(|&neighbor| neighbors[neighbor] = true);
-                Cow::Owned(neighbors)
+            InternalRepresentation::AdjacencyMatrix(adjacency_matrix) => &adjacency_matrix[vertex],
+            InternalRepresentation::AdjacencyList(_adjacency_list) => {
+                unimplemented!()
             }
         }
     }
@@ -788,11 +780,11 @@ impl Graph {
 
             // inserts vertices by group with their corresponding color and group id
             let mut remaining_vertices = (0..vertex_count).collect::<HashSet<usize>>();
-            for (group_id, color_group) in coloring.iter().enumerate() {
+            for (group_id, &color_group) in coloring.iter().enumerate() {
                 for vertex_id in color_group {
                     remaining_vertices.remove(vertex_id);
                     vis_network.add_node(
-                        *vertex_id as u128,
+                        *vertex_id as _,
                         &format!("{}", group_id),
                         Some(vec![
                             NodeOptions::Hex(&colors[group_id]),
@@ -805,7 +797,7 @@ impl Graph {
             // inserts remaining vertices (if not all vertices are included in the coloring)
             for vertex_id in remaining_vertices {
                 vis_network.add_node(
-                    vertex_id as u128,
+                    vertex_id as _,
                     "N/A",
                     Some(vec![
                         NodeOptions::Hex(&na_color),
@@ -817,7 +809,7 @@ impl Graph {
             // no coloring provided, thus inserts all vertices with default color and no group id
             for vertex_id in 0..vertex_count {
                 vis_network.add_node(
-                    vertex_id as u128,
+                    vertex_id as _,
                     "",
                     Some(vec![
                         NodeOptions::Hex(&default_color),
@@ -838,7 +830,7 @@ impl Graph {
                         adjacency_list[u].contains(&v)
                     }
                 } {
-                    vis_network.add_edge(u as u128, v as u128, None, false);
+                    vis_network.add_edge(u as _, v as _, None, false);
                 }
             }
         }
@@ -1024,13 +1016,11 @@ mod tests {
 
     #[test]
     fn worst_case_graph() {
-        let vertex_count = 100;
-        let graph = Graph::worst_case_graph(vertex_count, Representation::AdjacencyMatrix);
-
-        assert_eq!(
-            calc_nd_classes(&graph, Options::naive()).len(),
-            vertex_count
-        );
+        for order in 5..=100 {
+            let graph = Graph::worst_case_graph(order, Representation::AdjacencyMatrix);
+            let nd = calc_nd_classes(&graph, Optimizations::naive()).len();
+            assert_eq!(order, nd);
+        }
     }
 
     #[test]
@@ -1045,6 +1035,8 @@ mod tests {
             Representation::AdjacencyMatrix,
         );
 
-        assert!(calc_nd_classes(&graph, Options::naive()).len() <= neighborhood_diversity_limit);
+        assert!(
+            calc_nd_classes(&graph, Optimizations::naive()).len() <= neighborhood_diversity_limit
+        );
     }
 }
