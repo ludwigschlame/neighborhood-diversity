@@ -24,6 +24,8 @@ use md_tree::MDTree;
 
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
+use std::ops::Range;
+use std::sync::mpsc;
 use std::thread;
 
 pub type Partition = Vec<Vec<usize>>;
@@ -266,6 +268,75 @@ pub fn calc_nd_classes_improved(graph: &Graph, optimizations: Optimizations) -> 
     }
 
     neighborhood_partition
+}
+
+#[must_use]
+pub fn calc_nd_merge(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
+    let vertex_count = graph.vertex_count();
+
+    if vertex_count == 0 {
+        return vec![];
+    } else if vertex_count == 1 {
+        return vec![vec![0]];
+    }
+
+    let (tx, rx) = mpsc::channel();
+    thread::scope(|scope| {
+        (0..thread_count.into()).for_each(|thread_id| {
+            let thread_tx = tx.clone();
+            let range = thread_id * vertex_count / thread_count
+                ..(thread_id + 1) * vertex_count / thread_count;
+
+            scope.spawn(move || thread_tx.send(_calc_nd_merge(graph, range)));
+        });
+    });
+    drop(tx);
+
+    merge_partitions(graph, rx.iter().collect())
+}
+
+#[must_use]
+fn _calc_nd_merge(graph: &Graph, range: Range<usize>) -> Partition {
+    if range.is_empty() {
+        return vec![];
+    } else if range.len() == 1 {
+        return vec![vec![range.start]];
+    }
+
+    let middle = range.start + range.len() / 2;
+    merge_partitions(
+        graph,
+        vec![
+            _calc_nd_merge(graph, range.start..middle),
+            _calc_nd_merge(graph, middle..range.end),
+        ],
+    )
+}
+
+#[must_use]
+fn merge_partitions(graph: &Graph, mut partitions: Vec<Partition>) -> Partition {
+    let mut destination_partition = vec![];
+    while destination_partition.is_empty() {
+        destination_partition = partitions.pop().unwrap();
+    }
+
+    for source_partition in partitions {
+        for mut source_class in source_partition {
+            let mut found = false;
+            for destination_class in &mut destination_partition {
+                if same_type(graph, destination_class[0], source_class[0]) {
+                    destination_class.append(&mut source_class);
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                destination_partition.push(source_class);
+            }
+        }
+    }
+
+    destination_partition
 }
 
 #[must_use]
@@ -541,6 +612,8 @@ mod tests {
             calc_nd_naive_concurrent(graph, Optimizations::degree_filter(), THREAD_COUNT),
             calc_nd_naive_concurrent(graph, Optimizations::transitivity(), THREAD_COUNT),
             calc_nd_naive_concurrent(graph, Optimizations::all(), THREAD_COUNT),
+            calc_nd_merge(graph, NonZeroUsize::new(1).expect("should be non-zero")),
+            calc_nd_merge(graph, THREAD_COUNT),
             calc_nd_btree(graph),
             calc_nd_btree_degree(graph),
             calc_nd_btree_concurrent(graph, THREAD_COUNT),
