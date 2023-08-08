@@ -657,11 +657,11 @@ mod tests {
 
     #[test]
     fn all_algorithms_on_test_graphs() {
-        for graph in &test_graphs() {
+        test_graphs().par_iter_mut().for_each(|graph| {
             let expected = baseline(graph).len();
 
             compare_all(graph, expected);
-        }
+        });
     }
 
     #[test]
