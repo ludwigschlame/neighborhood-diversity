@@ -412,7 +412,7 @@ impl Graph {
                     .enumerate()
                     .for_each(|(u, neighborhood)| {
                         neighborhood
-                            .iter_mut()
+                            .par_iter_mut()
                             .enumerate()
                             .for_each(|(v, is_neighbor)| {
                                 *is_neighbor = adjacency_matrix[mapping[&u]][mapping[&v]];
@@ -979,7 +979,7 @@ impl From<MDTree> for Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::*;
+    use crate::prelude::*;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -1032,8 +1032,8 @@ mod tests {
     #[test]
     fn worst_case_graph() {
         for order in 5..=100 {
-            let graph = Graph::worst_case_graph(order, Representation::AdjacencyMatrix);
-            let nd = calc_nd_classes(&graph, Optimizations::naive()).len();
+            let graph = Graph::worst_case_graph(order, AdjacencyMatrix);
+            let nd = calc_nd_naive(&graph, Optimizations::none()).len();
             assert_eq!(order, nd);
         }
     }
@@ -1047,11 +1047,9 @@ mod tests {
             vertex_count,
             probability,
             neighborhood_diversity_limit,
-            Representation::AdjacencyMatrix,
+            AdjacencyMatrix,
         );
 
-        assert!(
-            calc_nd_classes(&graph, Optimizations::naive()).len() <= neighborhood_diversity_limit
-        );
+        assert!(calc_nd_naive(&graph, Optimizations::none()).len() <= neighborhood_diversity_limit);
     }
 }

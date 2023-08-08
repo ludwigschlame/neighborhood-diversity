@@ -30,24 +30,24 @@ pub type Partition = Vec<Vec<usize>>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Optimizations {
-    degree_filter: bool,
-    no_unnecessary_type_comparisons: bool,
+    pub degree_filter: bool,
+    pub transitivity: bool,
 }
 
 impl Optimizations {
     #[must_use]
-    pub const fn new(degree_filter: bool, no_unnecessary_type_comparisons: bool) -> Self {
+    pub const fn new(degree_filter: bool, transitivity: bool) -> Self {
         Self {
             degree_filter,
-            no_unnecessary_type_comparisons,
+            transitivity,
         }
     }
 
     #[must_use]
-    pub const fn naive() -> Self {
+    pub const fn none() -> Self {
         Self {
             degree_filter: false,
-            no_unnecessary_type_comparisons: false,
+            transitivity: false,
         }
     }
 
@@ -55,7 +55,23 @@ impl Optimizations {
     pub const fn all() -> Self {
         Self {
             degree_filter: true,
-            no_unnecessary_type_comparisons: true,
+            transitivity: true,
+        }
+    }
+
+    #[must_use]
+    pub const fn degree_filter() -> Self {
+        Self {
+            degree_filter: true,
+            transitivity: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn transitivity() -> Self {
+        Self {
+            degree_filter: false,
+            transitivity: true,
         }
     }
 }
@@ -79,7 +95,7 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 }
 
 #[must_use]
-pub fn calc_nd_classes(graph: &Graph, optimizations: Optimizations) -> Partition {
+pub fn calc_nd_naive(graph: &Graph, optimizations: Optimizations) -> Partition {
     let vertex_count = graph.vertex_count();
     let mut neighborhood_partition: Partition = vec![];
     let mut classes = vec![None::<usize>; vertex_count];
@@ -97,7 +113,7 @@ pub fn calc_nd_classes(graph: &Graph, optimizations: Optimizations) -> Partition
 
     for u in 0..vertex_count {
         // only compare neighborhoods if v is not already in an equivalence class
-        if optimizations.no_unnecessary_type_comparisons && classes[u].is_some() {
+        if optimizations.transitivity && classes[u].is_some() {
             continue;
         }
 
@@ -108,7 +124,7 @@ pub fn calc_nd_classes(graph: &Graph, optimizations: Optimizations) -> Partition
         }
 
         for v in (u + 1)..vertex_count {
-            if optimizations.no_unnecessary_type_comparisons && classes[v].is_some()
+            if optimizations.transitivity && classes[v].is_some()
                 || optimizations.degree_filter && degrees[u] != degrees[v]
             {
                 continue;
@@ -127,7 +143,7 @@ pub fn calc_nd_classes(graph: &Graph, optimizations: Optimizations) -> Partition
 }
 
 #[must_use]
-pub fn calc_nd_classes_concurrent(
+pub fn calc_nd_naive_concurrent(
     graph: &Graph,
     optimizations: Optimizations,
     thread_count: NonZeroUsize,
@@ -172,8 +188,7 @@ pub fn calc_nd_classes_concurrent(
 
                     let mut neighborhood_class = vec![u];
                     for v in (u + 1)..data.range.1 {
-                        if optimizations.no_unnecessary_type_comparisons
-                            && classified[v - data.range.0]
+                        if optimizations.transitivity && classified[v - data.range.0]
                             || optimizations.degree_filter
                                 && degrees[u - data.range.0] != degrees[v - data.range.0]
                         {
@@ -236,7 +251,7 @@ pub fn calc_nd_classes_improved(graph: &Graph, optimizations: Optimizations) -> 
 
         let mut neighborhood_class = vec![u];
         for v in (u + 1)..vertex_count {
-            if optimizations.no_unnecessary_type_comparisons && classified[v]
+            if optimizations.transitivity && classified[v]
                 || optimizations.degree_filter && degrees[u] != degrees[v]
             {
                 continue;
@@ -291,7 +306,7 @@ pub fn calc_nd_btree_degree(graph: &Graph) -> Partition {
     for vertex in 0..graph.vertex_count() {
         let degree = graph.degree(vertex);
 
-        let independent_set_type: &Vec<bool> = &graph.neighbors_as_bool_vector(vertex);
+        let independent_set_type: &Vec<bool> = graph.neighbors_as_bool_vector(vertex);
         let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
         clique_type[vertex] = true;
 
@@ -407,93 +422,6 @@ pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Pa
     collection.neighborhood_partition
 }
 
-#[must_use]
-pub fn calc_nd_btree_concurrent_old(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
-    type VertexType = Vec<bool>;
-
-    #[derive(Debug, Default, Clone)]
-    struct Data<'a> {
-        neighborhood_partition: Partition,
-        independent_sets: BTreeMap<&'a Vec<bool>, usize>,
-        cliques: BTreeMap<Vec<bool>, usize>,
-    }
-
-    let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
-
-    thread::scope(|scope| {
-        for (thread_id, data) in thread_data.iter_mut().enumerate() {
-            scope.spawn(move || {
-                let range = thread_id * graph.vertex_count() / thread_count
-                    ..(thread_id + 1) * graph.vertex_count() / thread_count;
-
-                for vertex in range {
-                    let independent_set_type: &VertexType = graph.neighbors_as_bool_vector(vertex);
-                    let mut clique_type;
-
-                    if let Some(&vertex_type) = data.independent_sets.get(independent_set_type) {
-                        data.neighborhood_partition[vertex_type].push(vertex);
-                    } else if let Some(&vertex_type) = data.cliques.get({
-                        clique_type = independent_set_type.clone();
-                        clique_type[vertex] = true;
-                        &clique_type
-                    }) {
-                        data.neighborhood_partition[vertex_type].push(vertex);
-                    } else {
-                        let vertex_type = data.neighborhood_partition.len();
-                        data.neighborhood_partition.push(vec![vertex]);
-                        data.independent_sets
-                            .insert(independent_set_type, vertex_type);
-                        data.cliques.insert(clique_type, vertex_type);
-                    }
-                }
-            });
-        }
-    });
-
-    // collect into last element
-    let mut collection = thread_data.pop().expect("len is non-zero");
-
-    for data in &thread_data {
-        let cliques_inverted: BTreeMap<usize, Vec<bool>> =
-            data.cliques.iter().map(|(k, v)| (*v, k.clone())).collect();
-
-        let independent_sets_inverted: BTreeMap<usize, &Vec<bool>> = data
-            .independent_sets
-            .iter()
-            .map(|(&k, &v)| (v, k))
-            .collect();
-
-        for (vertex_type, vertices) in data.neighborhood_partition.iter().enumerate() {
-            if let Some(&get) = collection
-                .cliques
-                .get(cliques_inverted.get(&vertex_type).unwrap())
-            {
-                collection.neighborhood_partition[get].extend(vertices);
-            } else if let Some(&get) = collection
-                .independent_sets
-                .get(independent_sets_inverted.get(&vertex_type).unwrap())
-            {
-                collection.neighborhood_partition[get].extend(vertices);
-            } else {
-                // insert clique type into collection
-                collection.cliques.insert(
-                    cliques_inverted.get(&vertex_type).unwrap().clone(),
-                    collection.neighborhood_partition.len(),
-                );
-                // insert independent set type into collection
-                collection.independent_sets.insert(
-                    independent_sets_inverted.get(&vertex_type).unwrap(),
-                    collection.neighborhood_partition.len(),
-                );
-                // add vertices as new type
-                collection.neighborhood_partition.push(vertices.clone());
-            }
-        }
-    }
-
-    collection.neighborhood_partition
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -601,18 +529,21 @@ mod tests {
 
         let partitions = &[
             baseline(graph),
-            calc_nd_classes(graph, Optimizations::naive()),
-            calc_nd_classes(graph, Optimizations::new(true, false)),
-            calc_nd_classes(graph, Optimizations::new(false, true)),
-            calc_nd_classes(graph, Optimizations::all()),
-            calc_nd_classes_improved(graph, Optimizations::naive()),
+            calc_nd_naive(graph, Optimizations::none()),
+            calc_nd_naive(graph, Optimizations::degree_filter()),
+            calc_nd_naive(graph, Optimizations::transitivity()),
+            calc_nd_naive(graph, Optimizations::all()),
+            calc_nd_classes_improved(graph, Optimizations::none()),
+            calc_nd_classes_improved(graph, Optimizations::degree_filter()),
+            calc_nd_classes_improved(graph, Optimizations::transitivity()),
             calc_nd_classes_improved(graph, Optimizations::all()),
-            calc_nd_classes_concurrent(graph, Optimizations::naive(), THREAD_COUNT),
-            calc_nd_classes_concurrent(graph, Optimizations::all(), THREAD_COUNT),
+            calc_nd_naive_concurrent(graph, Optimizations::none(), THREAD_COUNT),
+            calc_nd_naive_concurrent(graph, Optimizations::degree_filter(), THREAD_COUNT),
+            calc_nd_naive_concurrent(graph, Optimizations::transitivity(), THREAD_COUNT),
+            calc_nd_naive_concurrent(graph, Optimizations::all(), THREAD_COUNT),
             calc_nd_btree(graph),
             calc_nd_btree_degree(graph),
             calc_nd_btree_concurrent(graph, THREAD_COUNT),
-            calc_nd_btree_concurrent_old(graph, THREAD_COUNT),
         ];
 
         for partition in partitions {
