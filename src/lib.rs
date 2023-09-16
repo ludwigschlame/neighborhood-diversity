@@ -1,83 +1,29 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
-#![warn(clippy::use_debug)]
-#![warn(clippy::nursery)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::uninlined_format_args)] // inlined format args don's support batch renaming (yet?)
-#![allow(clippy::missing_panics_doc)] // missing docs in general (todo!)
-#![allow(clippy::missing_errors_doc)] // missing docs in general (todo!)
-#![warn( // useful lints that are allowed by default
+// useful lints that are allowed by default
+#![warn(
     missing_debug_implementations,
     missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unused_qualifications
 )]
+// enable more aggressive clippy lints
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::use_debug)]
+// disable lints that are too aggressive
+#![allow(clippy::uninlined_format_args)] // inlined format args don't support F2 batch renaming (yet?)
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
 
-pub mod cotree;
 pub mod graph;
-pub mod md_tree;
 pub mod prelude;
 
-use cotree::Cotree;
 use graph::Graph;
-use md_tree::MDTree;
 
 use std::collections::BTreeMap;
-use std::num::NonZeroUsize;
-use std::ops::Range;
-use std::sync::mpsc;
-use std::thread;
 
-pub type Partition = Vec<Vec<usize>>;
-
-#[derive(Debug, Clone, Copy)]
-pub struct Optimizations {
-    pub degree_filter: bool,
-    pub transitivity: bool,
-}
-
-impl Optimizations {
-    #[must_use]
-    pub const fn new(degree_filter: bool, transitivity: bool) -> Self {
-        Self {
-            degree_filter,
-            transitivity,
-        }
-    }
-
-    #[must_use]
-    pub const fn none() -> Self {
-        Self {
-            degree_filter: false,
-            transitivity: false,
-        }
-    }
-
-    #[must_use]
-    pub const fn all() -> Self {
-        Self {
-            degree_filter: true,
-            transitivity: true,
-        }
-    }
-
-    #[must_use]
-    pub const fn degree_filter() -> Self {
-        Self {
-            degree_filter: true,
-            transitivity: false,
-        }
-    }
-
-    #[must_use]
-    pub const fn transitivity() -> Self {
-        Self {
-            degree_filter: false,
-            transitivity: true,
-        }
-    }
-}
-
+// returns true if u and v are of the same type
 #[must_use]
 fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
     let u_neighbors = graph.neighbors_as_bool_vector(u);
@@ -97,165 +43,22 @@ fn same_type(graph: &Graph, u: usize, v: usize) -> bool {
 }
 
 #[must_use]
-pub fn calc_nd_naive(graph: &Graph, optimizations: Optimizations) -> Partition {
-    let vertex_count = graph.vertex_count();
-    let mut neighborhood_partition: Partition = vec![];
-    let mut classes = vec![None::<usize>; vertex_count];
+pub fn calc_nd_naive(graph: &Graph) -> Vec<Vec<usize>> {
+    let order = graph.order();
+    let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
+    let mut classified = vec![false; order];
 
     // collect degrees for all vertices
-    let degrees: Vec<usize> = if optimizations.degree_filter {
-        (0..vertex_count)
-            .map(|vertex| graph.degree(vertex))
-            .collect()
-    } else {
-        vec![]
-    };
+    let degrees: Vec<usize> = (0..order).map(|vertex| graph.degree(vertex)).collect();
 
-    let mut nd: usize = 0;
-
-    for u in 0..vertex_count {
-        // only compare neighborhoods if v is not already in an equivalence class
-        if optimizations.transitivity && classes[u].is_some() {
-            continue;
-        }
-
-        if classes[u].is_none() {
-            classes[u] = Some(nd);
-            neighborhood_partition.push(vec![u]);
-            nd += 1;
-        }
-
-        for v in (u + 1)..vertex_count {
-            if optimizations.transitivity && classes[v].is_some()
-                || optimizations.degree_filter && degrees[u] != degrees[v]
-            {
-                continue;
-            }
-
-            if same_type(graph, u, v) {
-                if classes[v].is_none() {
-                    neighborhood_partition[classes[u].unwrap()].push(v);
-                }
-                classes[v] = classes[u];
-            }
-        }
-    }
-
-    neighborhood_partition
-}
-
-#[must_use]
-pub fn calc_nd_naive_concurrent(
-    graph: &Graph,
-    optimizations: Optimizations,
-    thread_count: NonZeroUsize,
-) -> Partition {
-    struct Data {
-        partition: Partition,
-        range: (usize, usize),
-    }
-
-    let vertex_count = graph.vertex_count();
-    let mut neighborhood_partition: Partition;
-    let mut thread_data: Vec<Data> = vec![];
-
-    for thread_id in 0..thread_count.into() {
-        thread_data.push(Data {
-            partition: vec![],
-            range: (
-                thread_id * vertex_count / thread_count,
-                (thread_id + 1) * vertex_count / thread_count,
-            ),
-        });
-    }
-
-    thread::scope(|scope| {
-        for data in &mut thread_data {
-            scope.spawn(move || {
-                let mut classified = vec![false; data.range.1 - data.range.0];
-
-                // collect degrees for all vertices
-                let degrees: Vec<usize> = if optimizations.degree_filter {
-                    (data.range.0..data.range.1)
-                        .map(|vertex| graph.degree(vertex))
-                        .collect()
-                } else {
-                    vec![]
-                };
-
-                for u in data.range.0..data.range.1 {
-                    if classified[u - data.range.0] {
-                        continue;
-                    }
-
-                    let mut neighborhood_class = vec![u];
-                    for v in (u + 1)..data.range.1 {
-                        if optimizations.transitivity && classified[v - data.range.0]
-                            || optimizations.degree_filter
-                                && degrees[u - data.range.0] != degrees[v - data.range.0]
-                        {
-                            continue;
-                        }
-
-                        if same_type(graph, u, v) {
-                            classified[v - data.range.0] = true;
-                            neighborhood_class.push(v);
-                        }
-                    }
-                    data.partition.push(neighborhood_class);
-                }
-            });
-        }
-    });
-
-    neighborhood_partition = thread_data.pop().unwrap().partition;
-
-    for partition in &mut thread_data {
-        for class1 in &mut partition.partition {
-            let mut found = false;
-            for class2 in &mut neighborhood_partition {
-                if same_type(graph, class1[0], class2[0]) {
-                    class2.append(class1);
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                let mut i = vec![];
-                i.append(class1);
-                neighborhood_partition.push(i);
-            }
-        }
-    }
-
-    neighborhood_partition
-}
-
-#[must_use]
-pub fn calc_nd_classes_improved(graph: &Graph, optimizations: Optimizations) -> Partition {
-    let vertex_count = graph.vertex_count();
-    let mut neighborhood_partition: Partition = vec![];
-    let mut classified = vec![false; vertex_count];
-
-    // collect degrees for all vertices
-    let degrees: Vec<usize> = if optimizations.degree_filter {
-        (0..vertex_count)
-            .map(|vertex| graph.degree(vertex))
-            .collect()
-    } else {
-        vec![]
-    };
-
-    for u in 0..vertex_count {
+    for u in 0..order {
         if classified[u] {
             continue;
         }
 
         let mut neighborhood_class = vec![u];
-        for v in (u + 1)..vertex_count {
-            if optimizations.transitivity && classified[v]
-                || optimizations.degree_filter && degrees[u] != degrees[v]
-            {
+        for v in (u + 1)..order {
+            if classified[v] || degrees[u] != degrees[v] {
                 continue;
             }
 
@@ -271,226 +74,36 @@ pub fn calc_nd_classes_improved(graph: &Graph, optimizations: Optimizations) -> 
 }
 
 #[must_use]
-pub fn calc_nd_merge(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
-    let vertex_count = graph.vertex_count();
-
-    if vertex_count == 0 {
-        return vec![];
-    } else if vertex_count == 1 {
-        return vec![vec![0]];
-    }
-
-    let (tx, rx) = mpsc::channel();
-    thread::scope(|scope| {
-        (0..thread_count.into()).for_each(|thread_id| {
-            let thread_tx = tx.clone();
-            let range = thread_id * vertex_count / thread_count
-                ..(thread_id + 1) * vertex_count / thread_count;
-
-            scope.spawn(move || thread_tx.send(_calc_nd_merge(graph, range)));
-        });
-    });
-    drop(tx);
-
-    merge_partitions(graph, rx.iter().collect())
-}
-
-#[must_use]
-fn _calc_nd_merge(graph: &Graph, range: Range<usize>) -> Partition {
-    if range.is_empty() {
-        return vec![];
-    } else if range.len() == 1 {
-        return vec![vec![range.start]];
-    }
-
-    let middle = range.start + range.len() / 2;
-    merge_partitions(
-        graph,
-        vec![
-            _calc_nd_merge(graph, range.start..middle),
-            _calc_nd_merge(graph, middle..range.end),
-        ],
-    )
-}
-
-#[must_use]
-fn merge_partitions(graph: &Graph, mut partitions: Vec<Partition>) -> Partition {
-    let mut destination_partition = vec![];
-    while destination_partition.is_empty() {
-        destination_partition = partitions.pop().unwrap();
-    }
-
-    for source_partition in partitions {
-        for mut source_class in source_partition {
-            let mut found = false;
-            for destination_class in &mut destination_partition {
-                if same_type(graph, destination_class[0], source_class[0]) {
-                    destination_class.append(&mut source_class);
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                destination_partition.push(source_class);
-            }
-        }
-    }
-
-    destination_partition
-}
-
-#[must_use]
-pub fn calc_nd_btree(graph: &Graph) -> Partition {
-    let mut neighborhood_partition: Partition = Vec::new();
+pub fn calc_nd_btree(graph: &Graph) -> Vec<Vec<usize>> {
+    let mut partition: Vec<Vec<usize>> = Vec::new();
     let mut independent_sets: BTreeMap<&Vec<bool>, usize> = BTreeMap::new();
     let mut cliques: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
-    for vertex in 0..graph.vertex_count() {
+    for vertex in 0..graph.order() {
         let independent_set_type = graph.neighbors_as_bool_vector(vertex);
-        let mut clique_type;
+        let mut clique_type; // will only be constructed if first search fails
 
         if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
-            neighborhood_partition[vertex_type].push(vertex);
+            // vertex type found in the 'independent set' BTree
+            partition[vertex_type].push(vertex);
         } else if let Some(&vertex_type) = cliques.get({
             clique_type = independent_set_type.clone();
             clique_type[vertex] = true;
             &clique_type
         }) {
-            neighborhood_partition[vertex_type].push(vertex);
+            // vertex type found in the 'clique' BTree
+            partition[vertex_type].push(vertex);
         } else {
-            let vertex_type = neighborhood_partition.len();
-            neighborhood_partition.push(vec![vertex]);
+            // vertex type found in neither BTree
+            // create new class and insert types into both BTrees
+            let vertex_type = partition.len();
+            partition.push(vec![vertex]);
             independent_sets.insert(independent_set_type, vertex_type);
             cliques.insert(clique_type, vertex_type);
         }
     }
 
-    neighborhood_partition
-}
-
-#[must_use]
-pub fn calc_nd_btree_degree(graph: &Graph) -> Partition {
-    let mut neighborhood_partition: Partition = Vec::new();
-    let mut cliques: Vec<BTreeMap<Vec<bool>, usize>> = vec![BTreeMap::new(); graph.vertex_count()];
-    let mut independent_sets: Vec<BTreeMap<Vec<bool>, usize>> =
-        vec![BTreeMap::new(); graph.vertex_count()];
-    for vertex in 0..graph.vertex_count() {
-        let degree = graph.degree(vertex);
-
-        let independent_set_type: &Vec<bool> = graph.neighbors_as_bool_vector(vertex);
-        let clique_type: &mut Vec<bool> = &mut independent_set_type.clone();
-        clique_type[vertex] = true;
-
-        let cliques = cliques.get_mut(degree).unwrap();
-        let independent_sets = independent_sets.get_mut(degree).unwrap();
-
-        if let Some(&vertex_type) = cliques.get(clique_type) {
-            neighborhood_partition[vertex_type].push(vertex);
-        } else if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
-            neighborhood_partition[vertex_type].push(vertex);
-        } else {
-            let vertex_type = neighborhood_partition.len();
-            neighborhood_partition.push(vec![vertex]);
-            cliques.insert(clique_type.clone(), vertex_type);
-            independent_sets.insert(independent_set_type.clone(), vertex_type);
-        }
-    }
-
-    neighborhood_partition
-}
-
-#[must_use]
-pub fn calc_nd_btree_concurrent(graph: &Graph, thread_count: NonZeroUsize) -> Partition {
-    type VertexType = Vec<bool>;
-
-    #[derive(Debug, Default, Clone)]
-    struct Data<'is> {
-        neighborhood_partition: Partition,
-        independent_sets: BTreeMap<&'is Vec<bool>, usize>,
-        cliques: BTreeMap<Vec<bool>, usize>,
-    }
-
-    let mut thread_data: Vec<Data> = vec![Data::default(); thread_count.into()];
-
-    thread::scope(|scope| {
-        for (thread_id, data) in thread_data.iter_mut().enumerate() {
-            scope.spawn(move || {
-                let range = thread_id * graph.vertex_count() / thread_count
-                    ..(thread_id + 1) * graph.vertex_count() / thread_count;
-
-                for vertex in range {
-                    let independent_set_type: &VertexType = graph.neighbors_as_bool_vector(vertex);
-                    let mut clique_type;
-
-                    if let Some(&vertex_type) = data.independent_sets.get(independent_set_type) {
-                        data.neighborhood_partition[vertex_type].push(vertex);
-                    } else if let Some(&vertex_type) = data.cliques.get({
-                        clique_type = independent_set_type.clone();
-                        clique_type[vertex] = true;
-                        &clique_type
-                    }) {
-                        data.neighborhood_partition[vertex_type].push(vertex);
-                    } else {
-                        let vertex_type = data.neighborhood_partition.len();
-                        data.neighborhood_partition.push(vec![vertex]);
-                        data.independent_sets
-                            .insert(independent_set_type, vertex_type);
-                        data.cliques.insert(clique_type, vertex_type);
-                    }
-                }
-            });
-        }
-    });
-
-    // collect into last element
-    let mut collection = thread_data.pop().expect("len is non-zero");
-
-    // merge neighborhood partitions
-    for data in &mut thread_data {
-        let mut not_found: Vec<(Option<&VertexType>, Option<&VertexType>)> =
-            vec![(None, None); data.neighborhood_partition.len()];
-
-        for (clique_type, &class) in &data.cliques {
-            if let Some(&get) = collection.cliques.get(clique_type) {
-                collection.neighborhood_partition[get]
-                    .append(&mut data.neighborhood_partition[class]);
-            } else {
-                not_found[class].0 = Some(clique_type);
-            }
-        }
-
-        for (is_type, &class) in &data.independent_sets {
-            if not_found[class].0.is_none() {
-                continue;
-            }
-            if let Some(&get) = collection.independent_sets.get(is_type) {
-                collection.neighborhood_partition[get]
-                    .append(&mut data.neighborhood_partition[class]);
-            } else {
-                not_found[class].1 = Some(is_type);
-            }
-        }
-
-        // insert remaining classes into collection
-        for (class, (clique_type, is_type)) in not_found
-            .iter()
-            .enumerate()
-            .filter(|(_class, found)| found.1.is_some() && found.0.is_some())
-        {
-            // insert clique type into collection
-            collection
-                .cliques
-                .insert(clique_type.unwrap().clone(), class);
-            // insert independent set type into collection
-            collection.independent_sets.insert(is_type.unwrap(), class);
-            // add vertices as new neighborhood class
-            collection
-                .neighborhood_partition
-                .push(data.neighborhood_partition[class].clone());
-        }
-    }
-
-    collection.neighborhood_partition
+    partition
 }
 
 #[cfg(test)]
@@ -498,19 +111,47 @@ mod tests {
     use super::*;
     use crate::prelude::*;
     use pretty_assertions::assert_eq;
-    use rand::Rng;
-    use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+    use rand::{distributions::Uniform, prelude::Distribution, seq::SliceRandom, Rng};
+    // use rayon::prelude::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+    use std::collections::{HashMap, HashSet};
 
-    const VERTEX_COUNT: usize = 100;
-    const DENSITY: f32 = 0.5;
-    const ND_LIMIT: usize = 20;
-    const REPRESENTATIONS: &[graph::Representation] = &[AdjacencyMatrix /* , AdjacencyList */];
-    const THREAD_COUNT: NonZeroUsize = {
-        // SAFETY: 3 is non-zero.
-        unsafe { NonZeroUsize::new_unchecked(3) }
-    };
+    const ORDER: usize = 101;
+    const DENSITY: f64 = 0.1;
+    const ND_LIMIT: usize = 11;
+    const TEST_GRAPH_COUNT: usize = 10;
 
-    fn baseline(graph: &Graph) -> Partition {
+    // graph with a neighborhood diversity of 6
+    const EXAMPLE_GRAPH: &str = "# Number of vertices
+12
+
+# Edges
+0,1
+0,2
+1,2
+2,9
+2,10
+2,11
+2,3
+3,9
+3,10
+3,11
+3,4
+3,5
+4,6
+4,7
+4,8
+5,6
+5,7
+5,8
+6,7
+6,8
+7,8
+9,10
+9,11
+10,11
+";
+
+    fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
         // closure replacing the same_type() function
         let same_type = |u: usize, v: usize| -> bool {
             let mut u_neighbors: Vec<bool> = graph.neighbors_as_bool_vector(u).clone();
@@ -525,19 +166,19 @@ mod tests {
             u_neighbors == v_neighbors
         };
 
-        let vertex_count: usize = graph.vertex_count();
-        let mut partition: Partition = Vec::new();
-        let mut classes: Vec<Option<usize>> = vec![None; vertex_count];
+        let order: usize = graph.order();
+        let mut partition: Vec<Vec<usize>> = Vec::new();
+        let mut classes: Vec<Option<usize>> = vec![None; order];
         let mut nd: usize = 0;
 
-        for u in 0..vertex_count {
+        for u in 0..order {
             if classes[u].is_none() {
                 classes[u] = Some(nd);
                 partition.resize((nd + 1).max(partition.len()), vec![]);
                 partition[nd].push(u);
                 nd += 1;
             }
-            for v in (u + 1)..vertex_count {
+            for v in (u + 1)..order {
                 if same_type(u, v) {
                     classes[v] = classes[u];
                     if !partition[classes[u].unwrap()].contains(&v) {
@@ -550,27 +191,127 @@ mod tests {
         partition
     }
 
-    fn test_graphs() -> Vec<Graph> {
-        const GRAPHS_PER_REPRESENTATION: usize = 10;
+    // shuffles vertex ids while retaining the original graph structure
+    pub fn shuffle(graph: &mut Graph) -> &mut Graph {
+        let vertex_count = graph.order();
+        let mut rng = rand::thread_rng();
+        let mut vertex_ids: Vec<usize> = (0..vertex_count).collect();
+        vertex_ids.shuffle(&mut rng);
 
-        REPRESENTATIONS
-            .iter()
-            .flat_map(|&representation| {
-                (0..GRAPHS_PER_REPRESENTATION)
-                    .map(|_| {
-                        Graph::random_graph_nd_limited(
-                            VERTEX_COUNT,
-                            DENSITY,
-                            ND_LIMIT,
-                            representation,
-                        )
-                    })
-                    .collect::<Vec<Graph>>()
-            })
+        let mapping: HashMap<usize, usize> = vertex_ids.into_iter().enumerate().collect();
+
+        let mut shuffled_adjacency_matrix = vec![vec![false; vertex_count]; vertex_count];
+
+        shuffled_adjacency_matrix
+            .iter_mut()
+            .enumerate()
+            .for_each(|(u, neighborhood)| {
+                neighborhood
+                    .iter_mut()
+                    .enumerate()
+                    .for_each(|(v, is_neighbor)| {
+                        *is_neighbor = graph.is_edge(mapping[&u], mapping[&v]);
+                    });
+            });
+
+        // SAFETY: should be correct if it was correct before.
+        *graph = unsafe { Graph::from_adjacency_matrix_unchecked(shuffled_adjacency_matrix) };
+        graph
+    }
+
+    // constructs a random graph in the spirit of Gilbert's model G(n, p)
+    // the additional parameter specifies an upper limit for the neighborhood diversity
+    // first, a generator graph is constructed by generating a random graph with
+    // #neighborhood_diversity_limit many vertices and the given edge probability
+    // afterwards, for every vertex in the generator graph, a clique or an independent set
+    // (based on the edge probability) is inserted into the resulting graph
+    // finally, the sets of vertices are connected by edges analogous to the generator graph
+    #[must_use]
+    pub fn random_graph_nd_limited(
+        order: usize,
+        probability: f64,
+        neighborhood_diversity_limit: usize,
+    ) -> Graph {
+        let mut rng = rand::thread_rng();
+        let generator_graph = Graph::random_graph(neighborhood_diversity_limit, probability);
+        let mut random_graph = Graph::null_graph(order);
+
+        // randomly divides vertices into #neighborhood_diversity_limit many chunks
+        // collects these dividers into sorted array as starting positions for the sets
+        let set_start: Vec<usize> = {
+            // vertex index 0 is reserved for the initial starting position
+            let vertex_range = Uniform::from(1..=order);
+            let mut set_dividers: HashSet<usize> =
+                HashSet::with_capacity(neighborhood_diversity_limit);
+
+            // avoids excessive iterations by generating at most vertex_count / 2 dividers
+            if neighborhood_diversity_limit <= order / 2 {
+                // insert into empty HashSet
+                set_dividers.insert(0);
+                while set_dividers.len() < neighborhood_diversity_limit {
+                    set_dividers.insert(vertex_range.sample(&mut rng));
+                }
+            } else {
+                // remove from 'full' HashSet
+                set_dividers = (0..order).collect();
+                while set_dividers.len() > neighborhood_diversity_limit {
+                    set_dividers.remove(&vertex_range.sample(&mut rng));
+                }
+            }
+
+            let mut set_start = Vec::from_iter(set_dividers);
+            set_start.sort_unstable();
+            set_start
+        };
+
+        for u_gen in 0..generator_graph.order() {
+            let set_end_u = if u_gen == generator_graph.order() - 1 {
+                order
+            } else {
+                set_start[u_gen + 1]
+            };
+
+            // decides wether the neighborhood is a clique or an independent set
+            // if neighborhood is a clique, inserts all edges between distinct vertices
+            if rng.gen_bool(probability) {
+                for u in set_start[u_gen]..set_end_u {
+                    for v in (u + 1)..set_end_u {
+                        // SAFETY: each pair of vertices is only visited once.
+                        unsafe { random_graph.insert_edge_unchecked(u, v) };
+                    }
+                }
+            }
+
+            // inserts edges between vertex sets based on edges in the generator_graph
+            for &v_gen in generator_graph
+                .neighbors(u_gen)
+                .iter()
+                .filter(|&&neighbor| neighbor > u_gen)
+            {
+                let set_end_v = if v_gen == generator_graph.order() - 1 {
+                    order
+                } else {
+                    set_start[v_gen + 1]
+                };
+                for u in set_start[u_gen]..set_end_u {
+                    for v in set_start[v_gen]..set_end_v {
+                        // SAFETY: each pair of vertices is only visited once.
+                        unsafe { random_graph.insert_edge_unchecked(u, v) };
+                    }
+                }
+            }
+        }
+
+        random_graph
+    }
+
+    fn test_graphs() -> Vec<Graph> {
+        (0..TEST_GRAPH_COUNT)
+            .map(|_| random_graph_nd_limited(ORDER, DENSITY, ND_LIMIT))
             .collect::<Vec<Graph>>()
     }
 
-    fn all_unique(partition: &Partition, vertex_count: usize) {
+    fn all_unique(partition: &Vec<Vec<usize>>, order: usize) {
         let mut counter = std::collections::HashMap::new();
 
         for class in partition {
@@ -579,61 +320,38 @@ mod tests {
             }
         }
 
-        if vertex_count == 0 {
-            assert_eq!(counter.len(), vertex_count, "counter len != vertex count");
+        if order == 0 {
+            assert_eq!(counter.len(), order, "counter len != order");
             assert_eq!(counter.keys().min(), None, "counter min != None");
             assert_eq!(counter.keys().max(), None, "counter max != None");
         } else {
-            assert_eq!(counter.len(), vertex_count, "counter len != vertex count");
+            assert_eq!(counter.len(), order, "counter len != order");
             assert_eq!(counter.keys().min(), Some(&0), "counter min != 0");
             assert_eq!(
                 counter.keys().max(),
-                Some(&(vertex_count - 1)),
-                "counter max != vertex count - 1"
+                Some(&(order - 1)),
+                "counter max != order - 1"
             );
             assert!(counter.values().all(|&count| count == 1), "duplicate value");
         }
     }
 
     fn compare_all(graph: &Graph, expected: usize) {
-        let vertex_count = graph.vertex_count();
+        let order = graph.order();
 
-        let partitions = &[
-            baseline(graph),
-            calc_nd_naive(graph, Optimizations::none()),
-            calc_nd_naive(graph, Optimizations::degree_filter()),
-            calc_nd_naive(graph, Optimizations::transitivity()),
-            calc_nd_naive(graph, Optimizations::all()),
-            calc_nd_classes_improved(graph, Optimizations::none()),
-            calc_nd_classes_improved(graph, Optimizations::degree_filter()),
-            calc_nd_classes_improved(graph, Optimizations::transitivity()),
-            calc_nd_classes_improved(graph, Optimizations::all()),
-            calc_nd_naive_concurrent(graph, Optimizations::none(), THREAD_COUNT),
-            calc_nd_naive_concurrent(graph, Optimizations::degree_filter(), THREAD_COUNT),
-            calc_nd_naive_concurrent(graph, Optimizations::transitivity(), THREAD_COUNT),
-            calc_nd_naive_concurrent(graph, Optimizations::all(), THREAD_COUNT),
-            calc_nd_merge(graph, NonZeroUsize::new(1).expect("should be non-zero")),
-            calc_nd_merge(graph, THREAD_COUNT),
-            calc_nd_btree(graph),
-            calc_nd_btree_degree(graph),
-            calc_nd_btree_concurrent(graph, THREAD_COUNT),
-        ];
+        let partitions = &[baseline(graph), calc_nd_naive(graph), calc_nd_btree(graph)];
 
         for partition in partitions {
             // check for correct value of neighborhood diversity
             assert_eq!(partition.len(), expected);
             // check for uniqueness of vertices in partition
-            all_unique(partition, vertex_count);
+            all_unique(partition, order);
         }
     }
 
     #[test]
     fn all_algorithms_on_example() {
-        let path = "examples/nd_01_shuffled.txt";
-        let input = std::fs::read_to_string(path)
-            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
-
-        let graph = input
+        let graph = EXAMPLE_GRAPH
             .parse::<Graph>()
             .unwrap_or_else(|error| panic!("error parsing input: {}", error));
 
@@ -642,124 +360,89 @@ mod tests {
 
     #[test]
     fn all_algorithms_on_example_shuffled() {
-        let path = "examples/nd_01_shuffled.txt";
-        let input = std::fs::read_to_string(path)
-            .unwrap_or_else(|error| panic!("error reading '{}': {}", path, error));
-
-        let mut graph = input
+        let mut graph = EXAMPLE_GRAPH
             .parse::<Graph>()
             .unwrap_or_else(|error| panic!("error parsing input: {}", error));
 
-        graph.shuffle();
+        shuffle(&mut graph);
 
         compare_all(&graph, 6);
     }
 
     #[test]
     fn all_algorithms_on_test_graphs() {
-        test_graphs().par_iter_mut().for_each(|graph| {
+        for graph in &test_graphs() {
             let expected = baseline(graph).len();
 
             compare_all(graph, expected);
-        });
+        }
     }
 
     #[test]
     fn all_algorithms_on_test_graphs_shuffled() {
-        test_graphs().par_iter_mut().for_each(|graph| {
+        for graph in &mut test_graphs() {
             let expected = baseline(graph).len();
-            graph.shuffle();
+
+            shuffle(graph);
 
             compare_all(graph, expected);
+        }
+    }
+
+    #[test]
+    fn fuzzing_gilbert() {
+        (0..TEST_GRAPH_COUNT).for_each(|_| {
+            let mut rng = rand::thread_rng();
+            let order = rng.gen_range(0..=ORDER);
+            let probability = rng.gen::<f64>();
+
+            let mut fuzzy_graph = Graph::random_graph(order, probability);
+
+            let expected = baseline(&fuzzy_graph).len();
+
+            shuffle(&mut fuzzy_graph);
+
+            compare_all(&fuzzy_graph, expected);
         });
     }
 
     #[test]
-    fn fuzzing() {
-        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
-            (0..100).into_par_iter().for_each(|_| {
-                let mut rng = rand::thread_rng();
-                let vertex_count = rng.gen_range(0..=100);
-                let probability = rng.gen::<f32>();
+    fn fuzzing_nd_limit() {
+        (0..TEST_GRAPH_COUNT).for_each(|_| {
+            let mut rng = rand::thread_rng();
+            let order = rng.gen_range(2..=ORDER);
+            let neighborhood_diversity_limit = rng.gen_range(0..=order);
+            let probability: f64 = rng.gen();
 
-                let mut fuzzy_graph =
-                    Graph::random_graph(vertex_count, probability, representation);
+            let mut fuzzy_graph =
+                random_graph_nd_limited(order, probability, neighborhood_diversity_limit);
 
-                let expected = baseline(&fuzzy_graph).len();
+            let expected = baseline(&fuzzy_graph).len();
 
-                fuzzy_graph.shuffle();
+            shuffle(&mut fuzzy_graph);
 
-                compare_all(&fuzzy_graph, expected);
-            });
-        });
-    }
-
-    #[test]
-    fn fuzzing_nd_limited() {
-        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
-            (0..100).into_par_iter().for_each(|_| {
-                let mut rng = rand::thread_rng();
-                let vertex_count = rng.gen_range(2..=100);
-                let neighborhood_diversity_limit = rng.gen_range(0..=vertex_count);
-                let probability = rng.gen::<f32>();
-
-                let mut fuzzy_graph = Graph::random_graph_nd_limited(
-                    vertex_count,
-                    probability,
-                    neighborhood_diversity_limit,
-                    representation,
-                );
-
-                let expected = baseline(&fuzzy_graph).len();
-
-                fuzzy_graph.shuffle();
-
-                compare_all(&fuzzy_graph, expected);
-            });
+            compare_all(&fuzzy_graph, expected);
         });
     }
 
     #[test]
     fn empty_graph() {
-        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
-            let null_graph = Graph::null_graph(0, representation);
-            let expected = 0;
-
-            compare_all(&null_graph, expected);
-        });
+        let null_graph = Graph::null_graph(0);
+        let expected = 0;
+        compare_all(&null_graph, expected);
     }
 
     #[test]
     fn null_graph() {
-        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
-            let null_graph = Graph::null_graph(VERTEX_COUNT, representation);
-            let expected = 1;
-
-            compare_all(&null_graph, expected);
-        });
+        let null_graph = Graph::null_graph(ORDER);
+        let expected = 1;
+        compare_all(&null_graph, expected);
     }
 
     #[test]
     fn complete_graph() {
-        REPRESENTATIONS.into_par_iter().for_each(|&representation| {
-            let complete_graph = Graph::complete_graph(VERTEX_COUNT, representation);
-            let expected = 1;
-
-            compare_all(&complete_graph, expected);
-        });
-    }
-
-    #[test]
-    #[ignore = "currently broken"]
-    fn convert_representation() {
-        for graph in &mut test_graphs() {
-            let expected = baseline(graph).len();
-            match graph.representation() {
-                AdjacencyMatrix => graph.convert_representation(AdjacencyList),
-                AdjacencyList => graph.convert_representation(AdjacencyMatrix),
-            };
-
-            assert_eq!(baseline(graph).len(), expected);
-        }
+        let complete_graph = Graph::complete_graph(ORDER);
+        let expected = 1;
+        compare_all(&complete_graph, expected);
     }
 }
