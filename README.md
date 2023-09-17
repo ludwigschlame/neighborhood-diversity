@@ -1,6 +1,7 @@
 # Neighborhood Diversity
 
-A `Rust` Library for computing the neighborhood diversity of simple, undirected graphs $G = (V, E)$.
+### A `Rust` Library for computing the neighborhood diversity of simple, undirected graphs $G = (V, E)$.
+
 A graph's neighborhood diversity quantifies the variety of neighborhoods of its vertices.
 In loose terms, it says that two vertices have the same type if they have the same neighbors, irrespective of whether they are adjacent or not.
 Two vertices having the same type is an equivalence relation which means that reflexivity, symmetry and transitivity apply.
