@@ -40,8 +40,8 @@ const EXAMPLE_GRAPH: &str = "# Number of vertices
 fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
     // closure replacing the same_type() function
     let same_type = |u: usize, v: usize| -> bool {
-        let mut u_neighbors: Vec<bool> = graph.neighbors_as_bool_vector(u).clone();
-        let mut v_neighbors: Vec<bool> = graph.neighbors_as_bool_vector(v).clone();
+        let mut u_neighbors: Vec<bool> = graph.get_row(u).clone();
+        let mut v_neighbors: Vec<bool> = graph.get_row(v).clone();
 
         // N(u) \ v
         u_neighbors[v] = false;
@@ -218,7 +218,7 @@ fn all_unique(partition: &Vec<Vec<usize>>, order: usize) {
 fn compare_all(graph: &Graph, expected: usize) {
     let order = graph.order();
 
-    let partitions = &[baseline(graph), calc_nd_naive(graph), calc_nd_btree(graph)];
+    let partitions = &[baseline(graph), calc_neighborhood_partition(graph)];
 
     for partition in partitions {
         // check for correct value of neighborhood diversity

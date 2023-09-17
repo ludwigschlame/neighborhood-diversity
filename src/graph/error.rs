@@ -1,13 +1,40 @@
+/// A specialized [`Result`] type for [`Graph`] operations.
+///
+/// This type is broadly used across [`graph`] for any operation which may
+/// produce an error.
+///
+/// This typedef is generally used to avoid writing out [`graph::Error`] directly and
+/// is otherwise a direct mapping to [`Result`].
+///
+/// [`Result`]: std::result::Result
+/// [`graph::Error`]: Error
+/// [`Graph`]: crate::graph::Graph
+/// [`graph`]: crate::graph
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Error type for operations on the [`Graph`] struct.
+///
+/// [`Graph`]: crate::graph::Graph
 #[derive(Debug, Clone)]
 pub enum Error {
-    OutOfBounds(/* order: */ usize, /* vertex: */ usize),
-    SelfLoop(/* vertex: */ usize),
+    /// Provided vertex ID is greater or equal to order.
+    OutOfBounds(/* order */ usize, /* vertex */ usize),
+
+    /// True value on the diagonal of the adjacency matrix.
+    SelfLoop(/* vertex */ usize),
+
+    /// The length of at least one row of the adjacency matrix is not equal to
+    /// the total number of rows.
     NotSquare(
         /* row_count: */ usize,
         /* row_id: */ usize,
         /* row_len: */ usize,
     ),
+
+    /// The value of adjacency_matrix\[u\]\[v\] is not equal to adjacency_matrix\[v\]\[u\].
     NotSymmetrical(/* vertex_1: */ usize, /* vertex_2: */ usize),
+
+    /// Input could not be parsed into a graph.
     InvalidInput(String),
 }
 
