@@ -1,12 +1,12 @@
 # Neighborhood Diversity
 
-### A `Rust` Library for computing the neighborhood diversity of simple, undirected graphs $G = (V, E)$.
+### A `Rust` Library for computing the neighborhood diversity of simple, undirected graphs.
 
 A graph's neighborhood diversity quantifies the variety of neighborhoods of its vertices.
 In loose terms, it says that two vertices have the same type if they have the same neighbors, irrespective of whether they are adjacent or not.
 Two vertices having the same type is an equivalence relation which means that reflexivity, symmetry and transitivity apply.
 For the order-zero graph $K_0$, the neighborhood diversity is zero.
-Graphs of higher order produce values between one and $|V|$.
+Graphs $G = (V, E)$ of higher order produce values between one and $|V|$.
 One, if the graph's vertices form a singular clique or independent set and $|V|$ if no two vertices have the same type.
 The definitions this work is based on closely adhere to the ones presented by [Lampis (2012)](https://doi.org/10.1007/s00453-011-9554-x "Algorithmic Meta-theorems for Restrictions of Treewidth"):
 
