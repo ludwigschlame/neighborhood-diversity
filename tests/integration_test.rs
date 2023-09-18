@@ -101,7 +101,7 @@ pub fn shuffle(graph: &mut Graph) -> &mut Graph {
                 });
         });
 
-    // SAFETY: should be correct if it was correct before.
+    // Safety: should be correct if it was correct before.
     *graph = unsafe { Graph::from_adjacency_matrix_unchecked(shuffled_adjacency_matrix) };
     graph
 }
@@ -162,7 +162,7 @@ pub fn random_graph_nd_limited(
         if rng.gen_bool(probability) {
             for u in set_start[u_gen]..set_end_u {
                 for v in (u + 1)..set_end_u {
-                    // SAFETY: each pair of vertices is only visited once.
+                    // Safety: each pair of vertices is only visited once.
                     unsafe { random_graph.insert_edge_unchecked(u, v) };
                 }
             }
@@ -181,7 +181,7 @@ pub fn random_graph_nd_limited(
             };
             for u in set_start[u_gen]..set_end_u {
                 for v in set_start[v_gen]..set_end_v {
-                    // SAFETY: each pair of vertices is only visited once.
+                    // Safety: each pair of vertices is only visited once.
                     unsafe { random_graph.insert_edge_unchecked(u, v) };
                 }
             }

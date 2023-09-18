@@ -167,7 +167,7 @@ impl Graph {
         for u in 0..order {
             for v in (u + 1)..order {
                 if rng.gen_bool(probability) {
-                    // SAFETY: each pair of vertices is only visited once.
+                    // Safety: each pair of vertices is only visited once.
                     unsafe { random_graph.insert_edge_unchecked(u, v) };
                 }
             }
