@@ -362,12 +362,46 @@ impl Graph {
     ///     vec![true, false, false],
     /// ];
     /// let graph = Graph::from_adjacency_matrix(adjacency_matrix)?;
-    /// assert_eq!(graph.get_row(0), &vec![false, true, true]);
+    /// assert_eq!(graph.get_row(0)?, &vec![false, true, true]);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if `vertex` is greater than or equal to the order of the [`Graph`].
+    pub fn get_row(&self, vertex: usize) -> Result<&Vec<bool>> {
+        if vertex >= self.order() {
+            Err(Error::OutOfBounds(self.order(), vertex))
+        } else {
+            Ok(&self.adjacency_matrix[vertex])
+        }
+    }
+
+    /// Returns a reference to the corresponding row in the adjacency matrix.
+    ///
+    /// # Safety
+    ///
+    /// Ensure that `vertex` is smaller than the order of the [`Graph`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use neighborhood_diversity::graph::Graph;
+    /// # use neighborhood_diversity::graph::Error;
+    /// # fn main() -> Result<(), Error> {
+    /// let adjacency_matrix = vec![
+    ///     vec![false, true, true],
+    ///     vec![true, false, false],
+    ///     vec![true, false, false],
+    /// ];
+    /// let graph = Graph::from_adjacency_matrix(adjacency_matrix)?;
+    /// assert_eq!(unsafe { graph.get_row_unchecked(0) }, &vec![false, true, true]);
     /// # Ok(())
     /// # }
     /// ```
     #[must_use]
-    pub fn get_row(&self, vertex: usize) -> &Vec<bool> {
+    pub unsafe fn get_row_unchecked(&self, vertex: usize) -> &Vec<bool> {
         &self.adjacency_matrix[vertex]
     }
 
@@ -378,11 +412,15 @@ impl Graph {
     }
 
     /// Returns the degree of the given vertex.
-    #[must_use]
-    pub fn degree(&self, vertex: usize) -> usize {
-        self.get_row(vertex)
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if `vertex` is greater than or equal to the order of the [`Graph`].
+    pub fn degree(&self, vertex: usize) -> Result<usize> {
+        Ok(self
+            .get_row(vertex)?
             .iter()
-            .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor))
+            .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor)))
     }
 
     /// Returns the density of the graph (size of graph / max possible size).

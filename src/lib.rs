@@ -54,7 +54,8 @@ pub fn calc_neighborhood_partition(graph: &Graph) -> Vec<Vec<usize>> {
     let mut cliques: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
     for vertex in 0..graph.order() {
-        let independent_set_type = graph.get_row(vertex);
+        // Safety: vertex is less than graph.order()
+        let independent_set_type = unsafe { graph.get_row_unchecked(vertex) };
         let mut clique_type; // will only be constructed if first search fails
 
         if let Some(&vertex_type) = independent_sets.get(independent_set_type) {

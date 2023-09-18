@@ -40,8 +40,9 @@ const EXAMPLE_GRAPH: &str = "# Number of vertices
 fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
     // closure replacing the same_type() function
     let same_type = |u: usize, v: usize| -> bool {
-        let mut u_neighbors: Vec<bool> = graph.get_row(u).clone();
-        let mut v_neighbors: Vec<bool> = graph.get_row(v).clone();
+        // Safety:
+        let mut u_neighbors: Vec<bool> = unsafe { graph.get_row_unchecked(u).clone() };
+        let mut v_neighbors: Vec<bool> = unsafe { graph.get_row_unchecked(v).clone() };
 
         // N(u) \ v
         u_neighbors[v] = false;
