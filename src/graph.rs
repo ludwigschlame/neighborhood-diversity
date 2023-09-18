@@ -177,6 +177,21 @@ impl Graph {
         random_graph
     }
 
+    /// Resizes the [`Graph`] in-place so that its `order` is equal to
+    /// `new_order`.
+    ///
+    /// If `new_order` is greater than `order`, the [`Graph`] is extended by
+    /// the difference, without introducing any new edges.
+    ///
+    /// If `new_order` is less than `order`, the [`Graph`] is simply truncated.
+    pub fn resize(&mut self, new_order: usize) {
+        self.adjacency_matrix
+            .iter_mut()
+            .for_each(|row| row.resize(new_order, false));
+        self.adjacency_matrix
+            .resize(new_order, vec![false; new_order]);
+    }
+
     /// Inserts edge `{u, v}` into the graph.
     ///
     /// Returns `true` if the edge was newly inserted; `false` otherwise.
