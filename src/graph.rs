@@ -144,7 +144,8 @@ impl Graph {
     ///
     /// The resulting graph has an order of `n`.
     ///
-    /// Every edge between distinct vertices independently exists with probability `p`.
+    /// Every edge between distinct vertices independently exists with
+    /// probability `p`.
     ///
     /// # Examples
     ///
@@ -447,11 +448,13 @@ impl Graph {
 
     /// Saves the graph in a text representation.
     ///
-    /// The first line contains the order of the graph; subsequent lines list one edge each.
+    /// The first line contains the order of the graph; subsequent lines list
+    /// one edge each.
     ///
     /// Vertex indices are separated by a comma: `u,v`
     ///
-    /// Adds whitespace and comments starting with `#` except when `raw_output` is true.
+    /// Adds whitespace and comments starting with `#` except when `raw_output`
+    /// is true.
     ///
     /// # Errors
     ///
@@ -494,7 +497,8 @@ impl Graph {
 
 /// Creates a graph from an input string.
 ///
-/// The first line contains number of vertices; following lines list one edge each.
+/// The first line contains number of vertices; following lines list one edge
+/// each.
 ///
 /// Vertex indices are separated by a comma: `u,v`.
 ///

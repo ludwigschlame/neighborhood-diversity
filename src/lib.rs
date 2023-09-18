@@ -1,4 +1,5 @@
-//! Crate for computing the neighborhood diversity of simple, undirected graphs.
+//! Crate for computing the neighborhood diversity of simple, undirected
+//! graphs.
 //!
 //! Examples
 //! ```
@@ -37,7 +38,8 @@ use std::collections::BTreeMap;
 
 /// Returns the optimal neighborhood partition of the provided graph.
 ///
-/// Has an asymptotical running time of O(n<sup>2</sup> log n) where n is the order of the graph.
+/// Has an asymptotical running time of O(n<sup>2</sup> log n) where n is the
+/// order of the graph.
 ///
 /// # Examples
 ///
