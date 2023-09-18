@@ -22,6 +22,7 @@ impl Graph {
             adjacency_matrix: Vec::new(),
         }
     }
+
     /// Constructs a graph from a provided adjacency matrix.
     ///
     /// # Examples
@@ -100,7 +101,8 @@ impl Graph {
         Self { adjacency_matrix }
     }
 
-    /// Constructs a graph of size zero, that is, without any edges.
+    /// Constructs a [`Graph`] of the given order (number of vertices) and a
+    /// size (number of edges) of zero.
     ///
     /// # Examples
     ///
@@ -117,7 +119,8 @@ impl Graph {
         }
     }
 
-    /// Constructs a graph where every distinct pair of vertices is connected by an edge.
+    /// Constructs a graph where every distinct pair of vertices is connected
+    /// by an edge.
     ///
     /// The size of such a graph is (order<sup>2</sup> - order) / 2
     ///
