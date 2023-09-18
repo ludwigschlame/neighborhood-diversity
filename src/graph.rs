@@ -324,6 +324,12 @@ impl Graph {
         self.adjacency_matrix.len()
     }
 
+    /// Returns a reference to the adjacency matrix of the [`Graph`].
+    #[must_use]
+    pub const fn adjacency_matrix(&self) -> &Vec<Vec<bool>> {
+        &self.adjacency_matrix
+    }
+
     /// Returns the number of edges in the graph.
     ///
     /// # Examples
