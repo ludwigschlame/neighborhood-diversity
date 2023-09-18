@@ -7,13 +7,21 @@ pub use error::{Error, Result};
 use rand::Rng;
 
 /// Undirected graph represented by an adjacency matrix.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Graph {
     adjacency_matrix: Vec<Vec<bool>>,
 }
 
 impl Graph {
+    /// Creates a new [`Graph`] with an order (number of vertices) and size
+    /// (number of edges) of zero.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            adjacency_matrix: Vec::new(),
+        }
+    }
     /// Constructs a graph from a provided adjacency matrix.
     ///
     /// # Examples
