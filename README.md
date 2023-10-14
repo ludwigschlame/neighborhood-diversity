@@ -1,6 +1,6 @@
 # Neighborhood Diversity
 
-![Tests](https://img.shields.io/github/actions/workflow/status/ludwigschlame/neighborhood-diversity/rust.yml?label=tests)
+[![Tests](https://img.shields.io/github/actions/workflow/status/ludwigschlame/neighborhood-diversity/rust.yml?label=tests)](https://github.com/ludwigschlame/neighborhood-diversity/actions/workflows/rust.yml)
 
 A [`Rust`](https://www.rust-lang.org) Library for computing the neighborhood diversity of simple, undirected graphs.
 
