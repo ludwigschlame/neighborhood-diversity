@@ -4,6 +4,9 @@ version = "0.5.0"
 edition = "2021"
 repository = "https://github.com/ludwigschlame/neighborhood-diversity/"
 readme = "README.md"
+description = "Crate for computing the neighborhood diversity of simple, undirected graphs."
+keywords = ["graph", "graph-algorithms", "data-structure"]
+categories = ["data-structures"]
 license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

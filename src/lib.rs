@@ -5,8 +5,8 @@
 //! ```
 //! # use neighborhood_diversity::prelude::*;
 //! let graph = Graph::random_graph(10, 0.1);
-//! let partition = calc_neighborhood_partition(&graph);
-//! let neighborhood_diversity = partition.len();
+//! let neighborhood_partition = calc_neighborhood_partition(&graph);
+//! let neighborhood_diversity = neighborhood_partition.len();
 //! ```
 
 // deny lints that are allowed by default
@@ -32,7 +32,7 @@
 pub mod graph;
 pub mod prelude;
 
-use graph::Graph;
+pub use graph::Graph;
 
 use std::collections::BTreeMap;
 
@@ -47,11 +47,11 @@ use std::collections::BTreeMap;
 /// # use neighborhood_diversity::graph::Graph;
 /// # use neighborhood_diversity::calc_neighborhood_partition;
 /// let graph = Graph::random_graph(10, 0.1);
-/// let partition = calc_neighborhood_partition(&graph);
+/// let neighborhood_partition = calc_neighborhood_partition(&graph);
 /// ```
 #[must_use]
 pub fn calc_neighborhood_partition(graph: &Graph) -> Vec<Vec<usize>> {
-    let mut partition: Vec<Vec<usize>> = Vec::new();
+    let mut neighborhood_partition: Vec<Vec<usize>> = Vec::new();
     let mut independent_sets: BTreeMap<&Vec<bool>, usize> = BTreeMap::new();
     let mut cliques: BTreeMap<Vec<bool>, usize> = BTreeMap::new();
 
@@ -62,23 +62,23 @@ pub fn calc_neighborhood_partition(graph: &Graph) -> Vec<Vec<usize>> {
 
         if let Some(&vertex_type) = independent_sets.get(independent_set_type) {
             // vertex type found in the 'independent set' BTree
-            partition[vertex_type].push(vertex);
+            neighborhood_partition[vertex_type].push(vertex);
         } else if let Some(&vertex_type) = cliques.get({
             clique_type = independent_set_type.clone();
             clique_type[vertex] = true;
             &clique_type
         }) {
             // vertex type found in the 'clique' BTree
-            partition[vertex_type].push(vertex);
+            neighborhood_partition[vertex_type].push(vertex);
         } else {
             // vertex type found in neither BTree
             // create new class and insert types into both BTrees
-            let vertex_type = partition.len();
-            partition.push(vec![vertex]);
+            let vertex_type = neighborhood_partition.len();
+            neighborhood_partition.push(vec![vertex]);
             independent_sets.insert(independent_set_type, vertex_type);
             cliques.insert(clique_type, vertex_type);
         }
     }
 
-    partition
+    neighborhood_partition
 }

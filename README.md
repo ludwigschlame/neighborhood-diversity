@@ -1,6 +1,20 @@
 # Neighborhood Diversity
 
-### A `Rust` Library for computing the neighborhood diversity of simple, undirected graphs.
+![Tests](https://img.shields.io/github/actions/workflow/status/ludwigschlame/neighborhood-diversity/rust.yml?label=tests)
+
+A [`Rust`](https://www.rust-lang.org) Library for computing the neighborhood diversity of simple, undirected graphs.
+
+## Usage
+
+```rust
+use neighborhood_diversity::prelude::*;
+let graph = Graph::random_graph(10, 0.1);
+let neighborhood_partition = calc_neighborhood_partition(&graph);
+let neighborhood_diversity = neighborhood_partition.len();
+```
+
+
+## Definitions
 
 A graph's neighborhood diversity quantifies the variety of neighborhoods of its vertices.
 In loose terms, it says that two vertices have the same type if they have the same neighbors, irrespective of whether they are adjacent or not.
@@ -22,3 +36,8 @@ A *neighborhood partition* divides the vertices of a graph into subsets in such 
 
 >**Definition 1.4**
 The *neighborhood diversity* of a graph is defined by the number of parts in the optimal neighborhood partition of its vertices.
+
+## License
+
+Licensed under the Apache License, Version 2.0 <[LICENSE-APACHE.txt](LICENSE-APACHE.txt) or [https://www.apache.org/licenses/LICENSE-2.0](https://www.apache.org/licenses/LICENSE-2.0)> or the MIT license <[LICENSE-MIT.txt](LICENSE-MIT.txt) or [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)>, at your option. 
+Files in the project may not be copied, modified, or distributed except according to those terms.
