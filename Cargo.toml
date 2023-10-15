@@ -1,8 +1,9 @@
 [package]
 name = "neighborhood-diversity"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
-repository = "https://github.com/ludwigschlame/neighborhood-diversity/"
+repository = "https://github.com/ludwigschlame/neighborhood-diversity"
+documentation = "https://docs.rs/neighborhood-diversity"
 readme = "README.md"
 description = "Crate for computing the neighborhood diversity of simple, undirected graphs."
 keywords = ["graph", "graph-algorithms", "data-structure"]
