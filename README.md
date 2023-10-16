@@ -1,21 +1,21 @@
 # Neighborhood Diversity
 
-[<img alt="crates.io" src="https://img.shields.io/crates/v/neighborhood-diversity.svg?style=for-the-badge&color=ffc933&logo=rust" height="20">](https://crates.io/crates/neighborhood-diversity)
-[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/ludwigschlame/neighborhood-diversity/rust.yml?style=for-the-badge" height="20">](https://github.com/ludwigschlame/neighborhood-diversity/actions)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/neighborhood-diversity.svg?style=for-the-badge&color=ffc92f&logo=rust" height="20">](https://crates.io/crates/neighborhood-diversity)
 [<img alt="docs.rs" src="https://img.shields.io/docsrs/neighborhood-diversity?style=for-the-badge&color=66c2a5&logo=docs.rs" height="20">](https://docs.rs/neighborhood-diversity)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/ludwigschlame/neighborhood-diversity/rust.yml?style=for-the-badge" height="20">](https://github.com/ludwigschlame/neighborhood-diversity/actions)
 [<img alt="license" src="https://img.shields.io/crates/l/neighborhood-diversity?style=for-the-badge" height="20">](#license)
 
 A [`Rust`](https://www.rust-lang.org) Library for computing the neighborhood diversity of simple, undirected graphs.
 
-## Usage
+## Quick Start
 
 ```rust
 use neighborhood_diversity::prelude::*;
+
 let graph = Graph::random_graph(10, 0.1);
 let neighborhood_partition = calc_neighborhood_partition(&graph);
 let neighborhood_diversity = neighborhood_partition.len();
 ```
-
 
 ## Definitions
 

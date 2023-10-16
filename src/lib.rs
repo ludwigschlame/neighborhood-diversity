@@ -1,9 +1,10 @@
 //! Crate for computing the neighborhood diversity of simple, undirected
 //! graphs.
 //!
-//! Examples
+//! # Quick Start
 //! ```
-//! # use neighborhood_diversity::prelude::*;
+//! use neighborhood_diversity::prelude::*;
+//!
 //! let graph = Graph::random_graph(10, 0.1);
 //! let neighborhood_partition = calc_neighborhood_partition(&graph);
 //! let neighborhood_diversity = neighborhood_partition.len();
