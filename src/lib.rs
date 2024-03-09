@@ -27,8 +27,6 @@
     clippy::undocumented_unsafe_blocks,
     clippy::use_debug
 )]
-// disable lints that are too aggressive
-#![allow(clippy::uninlined_format_args)] // inlined format args don't support F2 batch renaming (yet?)
 
 pub mod graph;
 pub mod prelude;

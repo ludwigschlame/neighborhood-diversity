@@ -492,15 +492,15 @@ impl Graph {
         let order = self.order();
 
         let mut output = if raw_output {
-            format!("{}\n", order)
+            format!("{order}\n")
         } else {
-            format!("# Number of Vertices\n{}\n\n# Edges\n", order)
+            format!("# Number of Vertices\n{order}\n\n# Edges\n")
         };
 
         for u in 0..order {
             for v in u..order {
                 if self.adjacency_matrix[u][v] {
-                    output.push_str(&format!("{},{}\n", u, v));
+                    output.push_str(&format!("{u},{v}\n"));
                 }
             }
         }
@@ -552,7 +552,7 @@ impl std::str::FromStr for Graph {
         // then tries to parse both sides as vertex indices
         // finally, tries inserting new edge into the graph
         relevant_lines.try_for_each(|edge| -> Result<()> {
-            let parse_error = format!("expected comma-separated vertex ids, received: '{}'", edge);
+            let parse_error = format!("expected comma-separated vertex ids, received: '{edge}'");
 
             let vertices = edge
                 .split_once(',')
