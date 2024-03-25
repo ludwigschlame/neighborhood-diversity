@@ -1,6 +1,6 @@
 [package]
 name = "neighborhood-diversity"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 repository = "https://github.com/ludwigschlame/neighborhood-diversity"
 documentation = "https://docs.rs/neighborhood-diversity"
@@ -17,3 +17,20 @@ rand = "0.8"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
+
+# rust lints that are 'allowed' by default
+[lints.rust]
+missing_debug_implementations = "warn"
+missing_copy_implementations = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_qualifications = "warn"
+missing_docs = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+
+# additional lints from clippy
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+undocumented_unsafe_blocks = "warn"
+use_debug = "warn"

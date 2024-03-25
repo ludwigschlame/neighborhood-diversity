@@ -10,24 +10,6 @@
 //! let neighborhood_diversity = neighborhood_partition.len();
 //! ```
 
-// deny lints that are allowed by default
-#![deny(
-    missing_debug_implementations,
-    missing_copy_implementations,
-    trivial_casts,
-    trivial_numeric_casts,
-    unused_qualifications,
-    missing_docs,
-    unsafe_op_in_unsafe_fn
-)]
-// clippy lints
-#![warn(
-    clippy::pedantic,
-    clippy::nursery,
-    clippy::undocumented_unsafe_blocks,
-    clippy::use_debug
-)]
-
 pub mod graph;
 pub mod prelude;
 
