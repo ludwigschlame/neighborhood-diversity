@@ -40,8 +40,9 @@ const EXAMPLE_GRAPH: &str = "# Number of vertices
 fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
     // closure replacing the same_type() function
     let same_type = |u: usize, v: usize| -> bool {
-        // Safety:
+        // Safety: u is less than graph.order()
         let mut u_neighbors: Vec<bool> = unsafe { graph.get_row_unchecked(u).clone() };
+        // Safety: v is less than graph.order()
         let mut v_neighbors: Vec<bool> = unsafe { graph.get_row_unchecked(v).clone() };
 
         // N(u) \ v
@@ -233,7 +234,7 @@ fn compare_all(graph: &Graph, expected: usize) {
 fn all_algorithms_on_example() {
     let graph = EXAMPLE_GRAPH
         .parse::<Graph>()
-        .unwrap_or_else(|error| panic!("error parsing input: {}", error));
+        .unwrap_or_else(|error| panic!("error parsing input: {error}"));
 
     compare_all(&graph, 6);
 }
@@ -242,7 +243,7 @@ fn all_algorithms_on_example() {
 fn all_algorithms_on_example_shuffled() {
     let mut graph = EXAMPLE_GRAPH
         .parse::<Graph>()
-        .unwrap_or_else(|error| panic!("error parsing input: {}", error));
+        .unwrap_or_else(|error| panic!("error parsing input: {error}"));
 
     shuffle(&mut graph);
 
