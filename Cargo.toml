@@ -1,6 +1,6 @@
 [package]
 name = "neighborhood-diversity"
-version = "0.5.5"
+version = "0.6.0"
 edition = "2021"
 repository = "https://github.com/ludwigschlame/neighborhood-diversity"
 documentation = "https://docs.rs/neighborhood-diversity"
