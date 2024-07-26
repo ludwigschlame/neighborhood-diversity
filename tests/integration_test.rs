@@ -98,7 +98,8 @@ pub fn shuffle(graph: &mut Graph) -> &mut Graph {
                 .iter_mut()
                 .enumerate()
                 .for_each(|(v, is_neighbor)| {
-                    *is_neighbor = graph.is_edge(mapping[&u], mapping[&v]);
+                    // Safety: u and v are in 0..vertex_count
+                    *is_neighbor = unsafe { graph.is_edge_unchecked(mapping[&u], mapping[&v]) };
                 });
         });
 
@@ -170,11 +171,13 @@ pub fn random_graph_nd_limited(
         }
 
         // inserts edges between vertex sets based on edges in the generator_graph
-        for &v_gen in generator_graph
-            .neighbors(u_gen)
-            .iter()
-            .filter(|&&neighbor| neighbor > u_gen)
-        {
+        // Safety: u_gen is in 0..generator_graph.order()
+        for &v_gen in unsafe {
+            generator_graph
+                .neighbors_unchecked(u_gen)
+                .iter()
+                .filter(|&&neighbor| neighbor > u_gen)
+        } {
             let set_end_v = if v_gen == generator_graph.order() - 1 {
                 order
             } else {

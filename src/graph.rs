@@ -357,14 +357,53 @@ impl Graph {
     ///     vec![true, false, false],
     /// ];
     /// let graph = Graph::from_adjacency_matrix(adjacency_matrix)?;
-    /// assert_eq!(graph.neighbors(0), vec![1, 2]);
+    /// assert_eq!(graph.neighbors(0), Ok(vec![1, 2]));
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if `vertex` is greater than or equal to the order of the [`Graph`].
+    pub fn neighbors(&self, vertex: usize) -> Result<Vec<usize>> {
+        Ok(self
+            .get_row(vertex)?
+            .iter()
+            .enumerate()
+            .filter(|(_, &is_neighbor)| is_neighbor)
+            .map(|(neighbor, _)| neighbor)
+            .collect())
+    }
+
+    /// Returns the neighbors of the given vertex as a [`Vec`].
+    ///
+    /// # Safety
+    ///
+    /// Ensure that `vertex` is smaller than the order of the [`Graph`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use neighborhood_diversity::graph::Graph;
+    /// # use neighborhood_diversity::graph::Error;
+    /// # fn main() -> Result<(), Error> {
+    /// let adjacency_matrix = vec![
+    ///     vec![false, true, true],
+    ///     vec![true, false, false],
+    ///     vec![true, false, false],
+    /// ];
+    /// let graph = Graph::from_adjacency_matrix(adjacency_matrix)?;
+    /// assert_eq!(unsafe { graph.neighbors_unchecked(0) }, vec![1, 2]);
     /// # Ok(())
     /// # }
     /// ```
     #[must_use]
-    pub fn neighbors(&self, vertex: usize) -> Vec<usize> {
-        (0..self.order())
-            .filter(|&neighbor| self.adjacency_matrix[vertex][neighbor])
+    pub unsafe fn neighbors_unchecked(&self, vertex: usize) -> Vec<usize> {
+        self.get_row_unchecked(vertex)
+            .iter()
+            .enumerate()
+            .filter(|(_, &is_neighbor)| is_neighbor)
+            .map(|(neighbor, _)| neighbor)
             .collect()
     }
 
@@ -424,8 +463,23 @@ impl Graph {
     }
 
     /// Returns `true` if there is an edge between `u` and `v`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if `u` or `v` are out of bounds.
+    pub fn is_edge(&self, u: usize, v: usize) -> Result<bool> {
+        self.check_bounds(&[u, v])?;
+
+        Ok(self.adjacency_matrix[u][v])
+    }
+
+    /// Returns `true` if there is an edge between `u` and `v`.
+    ///
+    /// # Safety
+    ///
+    /// Ensure that `u` and `v` are in bounds.
     #[must_use]
-    pub fn is_edge(&self, u: usize, v: usize) -> bool {
+    pub unsafe fn is_edge_unchecked(&self, u: usize, v: usize) -> bool {
         self.adjacency_matrix[u][v]
     }
 

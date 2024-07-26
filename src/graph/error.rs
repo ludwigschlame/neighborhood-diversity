@@ -15,7 +15,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Error type for operations on the [`Graph`] struct.
 ///
 /// [`Graph`]: crate::graph::Graph
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// Provided vertex ID is greater or equal to order.
     OutOfBounds(/* order */ usize, /* vertex */ usize),
@@ -44,7 +44,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
             Self::OutOfBounds(order, vertex) => {
-                format!("index out of bounds: the order is {order} but the index is {vertex}")
+                format!("Index out of bounds: the order is {order} but the index is {vertex}")
             }
             Self::SelfLoop(u) => {
                 format!("error inserting edge {{{u}, {u}}}: self-loops are not allowed")
