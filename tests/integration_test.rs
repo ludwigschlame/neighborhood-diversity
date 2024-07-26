@@ -193,7 +193,7 @@ pub fn random_graph_nd_limited(
 }
 
 fn all_unique(partition: &Vec<Vec<usize>>, order: usize) {
-    let mut counter = std::collections::HashMap::new();
+    let mut counter = HashMap::new();
 
     for class in partition {
         for &vertex in class {

@@ -97,7 +97,7 @@ impl Graph {
     /// let graph = unsafe { Graph::from_adjacency_matrix_unchecked(adjacency_matrix) };
     /// ```
     #[must_use]
-    pub unsafe fn from_adjacency_matrix_unchecked(adjacency_matrix: Vec<Vec<bool>>) -> Self {
+    pub const unsafe fn from_adjacency_matrix_unchecked(adjacency_matrix: Vec<Vec<bool>>) -> Self {
         Self { adjacency_matrix }
     }
 

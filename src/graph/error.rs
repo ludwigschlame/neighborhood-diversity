@@ -31,7 +31,7 @@ pub enum Error {
         /* row_len: */ usize,
     ),
 
-    /// The value of adjacency_matrix\[u\]\[v\] is not equal to adjacency_matrix\[v\]\[u\].
+    /// The value of `adjacency_matrix`\[u\]\[v\] is not equal to `adjacency_matrix`\[v\]\[u\].
     NotSymmetrical(/* vertex_1: */ usize, /* vertex_2: */ usize),
 
     /// Input could not be parsed into a graph.
