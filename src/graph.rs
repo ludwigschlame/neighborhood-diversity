@@ -218,13 +218,8 @@ impl Graph {
     /// - `u` or `v` are out of bounds.
     /// - `u == v` (self-loop).
     pub fn insert_edge(&mut self, u: usize, v: usize) -> Result<bool> {
-        // returns error if index is out of bounds
-        let order = self.order();
-        for vertex in [u, v] {
-            if vertex >= order {
-                return Err(Error::OutOfBounds(order, vertex));
-            }
-        }
+        self.check_bounds(&[u, v])?;
+
         if u == v {
             return Err(Error::SelfLoop(u));
         }
@@ -277,12 +272,7 @@ impl Graph {
     /// This function will return an error if `u` or `v` are out of bounds.
     pub fn remove_edge(&mut self, u: usize, v: usize) -> Result<bool> {
         // returns error if index is out of bounds
-        let order = self.order();
-        for vertex in [u, v] {
-            if vertex >= order {
-                return Err(Error::OutOfBounds(order, vertex));
-            }
-        }
+        self.check_bounds(&[u, v])?;
 
         // undirected graph -> symmetrical adjacency matrix
         // thus we only need to check for one direction but change both
@@ -396,11 +386,9 @@ impl Graph {
     ///
     /// Returns an [`Error`] if `vertex` is greater than or equal to the order of the [`Graph`].
     pub fn get_row(&self, vertex: usize) -> Result<&Vec<bool>> {
-        if vertex >= self.order() {
-            Err(Error::OutOfBounds(self.order(), vertex))
-        } else {
-            Ok(&self.adjacency_matrix[vertex])
-        }
+        self.check_bounds(&[vertex])?;
+
+        Ok(&self.adjacency_matrix[vertex])
     }
 
     /// Returns a reference to the corresponding row in the adjacency matrix.
@@ -516,6 +504,21 @@ impl Graph {
     #[must_use]
     pub fn neighborhood_partition(&self) -> Vec<Vec<usize>> {
         crate::calc_neighborhood_partition(self)
+    }
+
+    /// Checks if the given vertex indices `u` and `v` are within the bounds of the graph.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an `Error::OutOfBounds` if `u` or `v` are out of bounds.
+    fn check_bounds(&self, vertices: &[usize]) -> Result<()> {
+        let order = self.order();
+        for &vertex in vertices {
+            if vertex >= order {
+                return Err(Error::OutOfBounds(order, vertex));
+            }
+        }
+        Ok(())
     }
 }
 

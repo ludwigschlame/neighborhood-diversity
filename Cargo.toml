@@ -26,7 +26,6 @@ trivial_casts = "warn"
 trivial_numeric_casts = "warn"
 unused_qualifications = "warn"
 missing_docs = "deny"
-unsafe_op_in_unsafe_fn = "deny"
 
 # additional lints from clippy
 [lints.clippy]
