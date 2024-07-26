@@ -331,11 +331,16 @@ impl Graph {
     /// ```
     #[must_use]
     pub fn size(&self) -> usize {
-        self.adjacency_matrix.iter().fold(0, |acc, row| {
-            acc + row
-                .iter()
-                .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor))
-        }) / 2
+        self.adjacency_matrix
+            .iter()
+            .enumerate()
+            .map(|(row_idx, row)| {
+                row.iter()
+                    .skip(row_idx) // only look at the upper triangle
+                    .filter(|&&is_neighbor| is_neighbor)
+                    .count()
+            })
+            .sum()
     }
 
     /// Returns the neighbors of the given vertex as a [`Vec`].
@@ -433,7 +438,8 @@ impl Graph {
         Ok(self
             .get_row(vertex)?
             .iter()
-            .fold(0, |acc, &is_neighbor| acc + usize::from(is_neighbor)))
+            .filter(|&&is_neighbor| is_neighbor)
+            .count())
     }
 
     /// Returns the density of the graph (size of graph / max possible size).
