@@ -112,7 +112,7 @@ pub fn shuffle(graph: &mut Graph) -> &mut Graph {
 }
 
 /// Constructs a random graph in the spirit of Gilbert's model G(n, p) with a limited neighborhood diversity.
-/// 
+///
 /// # Arguments
 /// * `order` - The number of vertices in the graph
 /// * `probability` - The probability of an edge between any two vertices
