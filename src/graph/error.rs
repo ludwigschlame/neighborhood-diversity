@@ -52,9 +52,9 @@ impl std::fmt::Display for Error {
             Self::NotSquare(row_count, row_id, row_len) => format!(
                 "adjacency matrix is not square: has {row_count} rows but row #{row_id} has {row_len} elements"
             ),
-            Self::NotSymmetrical(u, v) => format!(
-                "adjacency matrix is not symmetrical: matrix[{u}][{v}] != matrix[{v}][{u}]"
-            ),
+            Self::NotSymmetrical(u, v) => {
+                format!("adjacency matrix is not symmetrical: matrix[{u}][{v}] != matrix[{v}][{u}]")
+            }
             Self::InvalidInput(input) => format!("invalid input: {input}"),
         };
 
