@@ -1,3 +1,5 @@
+//! Integration tests for the neighborhood-diversity crate.
+
 use neighborhood_diversity::prelude::*;
 use pretty_assertions::assert_eq;
 use rand::{distributions::Uniform, prelude::Distribution, seq::SliceRandom, Rng};
@@ -79,7 +81,8 @@ fn baseline(graph: &Graph) -> Vec<Vec<usize>> {
     partition
 }
 
-// shuffles vertex ids while retaining the original graph structure
+/// Shuffles vertex ids while retaining the original graph structure.
+/// Returns a reference to the modified graph.
 pub fn shuffle(graph: &mut Graph) -> &mut Graph {
     let vertex_count = graph.order();
     let mut rng = rand::thread_rng();
@@ -108,13 +111,12 @@ pub fn shuffle(graph: &mut Graph) -> &mut Graph {
     graph
 }
 
-// constructs a random graph in the spirit of Gilbert's model G(n, p)
-// the additional parameter specifies an upper limit for the neighborhood diversity
-// first, a generator graph is constructed by generating a random graph with
-// #neighborhood_diversity_limit many vertices and the given edge probability
-// afterwards, for every vertex in the generator graph, a clique or an independent set
-// (based on the edge probability) is inserted into the resulting graph
-// finally, the sets of vertices are connected by edges analogous to the generator graph
+/// Constructs a random graph in the spirit of Gilbert's model G(n, p) with a limited neighborhood diversity.
+/// 
+/// # Arguments
+/// * `order` - The number of vertices in the graph
+/// * `probability` - The probability of an edge between any two vertices
+/// * `neighborhood_diversity_limit` - Upper limit for the neighborhood diversity
 #[must_use]
 pub fn random_graph_nd_limited(
     order: usize,
