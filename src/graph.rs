@@ -370,7 +370,7 @@ impl Graph {
             .get_row(vertex)?
             .iter()
             .enumerate()
-            .filter(|(_, &is_neighbor)| is_neighbor)
+            .filter(|&(_, &is_neighbor)| is_neighbor)
             .map(|(neighbor, _)| neighbor)
             .collect())
     }
@@ -399,12 +399,15 @@ impl Graph {
     /// ```
     #[must_use]
     pub unsafe fn neighbors_unchecked(&self, vertex: usize) -> Vec<usize> {
-        self.get_row_unchecked(vertex)
-            .iter()
-            .enumerate()
-            .filter(|(_, &is_neighbor)| is_neighbor)
-            .map(|(neighbor, _)| neighbor)
-            .collect()
+        // SAFETY: vertex is guaranteed to be in bounds by the function's safety contract
+        unsafe {
+            self.get_row_unchecked(vertex)
+                .iter()
+                .enumerate()
+                .filter(|&(_, &is_neighbor)| is_neighbor)
+                .map(|(neighbor, _)| neighbor)
+                .collect()
+        }
     }
 
     /// Returns a reference to the corresponding row in the adjacency matrix.

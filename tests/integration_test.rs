@@ -281,7 +281,7 @@ fn fuzzing_gilbert() {
     (0..TEST_GRAPH_COUNT).for_each(|_| {
         let mut rng = rand::thread_rng();
         let order = rng.gen_range(0..=ORDER_MAX);
-        let probability = rng.gen::<f64>();
+        let probability = rng.r#gen::<f64>();
 
         let mut fuzzy_graph = Graph::random_graph(order, probability);
 
@@ -299,7 +299,7 @@ fn fuzzing_nd_limit() {
         let mut rng = rand::thread_rng();
         let order = rng.gen_range(2..=ORDER_MAX);
         let neighborhood_diversity_limit = rng.gen_range(0..=order);
-        let probability: f64 = rng.gen();
+        let probability: f64 = rng.r#gen();
 
         let mut fuzzy_graph =
             random_graph_nd_limited(order, probability, neighborhood_diversity_limit);
