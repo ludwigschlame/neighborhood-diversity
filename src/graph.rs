@@ -1,10 +1,12 @@
 //! Undirected graph represented by an adjacency matrix.
 
-mod error;
+use std::fmt::Write as _;
+
+use rand::Rng;
 
 pub use error::{Error, Result};
 
-use rand::Rng;
+mod error;
 
 /// Undirected graph represented by an adjacency matrix.
 #[derive(Debug, Clone, Default)]
@@ -551,7 +553,7 @@ impl Graph {
         for u in 0..order {
             for v in u..order {
                 if self.adjacency_matrix[u][v] {
-                    output.push_str(&format!("{u},{v}\n"));
+                    writeln!(output, "{u},{v}").unwrap();
                 }
             }
         }
