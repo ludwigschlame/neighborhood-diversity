@@ -2,7 +2,7 @@
 
 use neighborhood_diversity::prelude::*;
 use pretty_assertions::assert_eq;
-use rand::{distributions::Uniform, prelude::Distribution, seq::SliceRandom, Rng};
+use rand::{Rng, distributions::Uniform, prelude::Distribution, seq::SliceRandom};
 use std::collections::{HashMap, HashSet};
 
 const ORDER_MAX: usize = 101;
@@ -174,12 +174,8 @@ pub fn random_graph_nd_limited(
 
         // inserts edges between vertex sets based on edges in the generator_graph
         // Safety: u_gen is in 0..generator_graph.order()
-        for &v_gen in unsafe {
-            generator_graph
-                .neighbors_unchecked(u_gen)
-                .iter()
-                .filter(|&&neighbor| neighbor > u_gen)
-        } {
+        let neighbors = unsafe { generator_graph.neighbors_unchecked(u_gen) };
+        for &v_gen in neighbors.iter().filter(|&&neighbor| neighbor > u_gen) {
             let set_end_v = if v_gen == generator_graph.order() - 1 {
                 order
             } else {
